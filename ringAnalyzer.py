@@ -6,53 +6,66 @@ PROGRAM DESCRPTION:   Program to place rings/atoms on an image and returns the c
 ******************************************************************************************"""
 
 #IMPORTS
-from graphics import *
-from Image import PIL
+import graphics
+#from PIL import Image
 from buttonClass import Button
 from ringClass import Ring
 import matplotlib.pylab as plt
-import numpy as np
+#import numpy as np
 
+#set monitor size in pixels: original height is 1500 by 1000
+monLen = 1350
+monHeight = 690
 
 #Set up main windown
-win = GraphWin('Ring Analyzer', 1500, 1000)
+win = graphics.GraphWin('Ring Analyzer', monLen, monHeight)
 
 def createBoard(win):
     """Creates program boad & instructions"""
     
+    #list of graphics positions, convert to fit monLen, monHeight
+    gLen = [498, 498, 0, 498, 250, 250, 1000, 250, 250, 425, 1000, 250, 300, 400,
+          100, 100, 100, 100, 100, 100, 100, 350, 350, 350]
+    gLen = [(num / 1500) * monLen for num in gLen]
+    
+    gHt = [0, 1000, 600, 600, 25, 625, 500, 75, 140, 140, 500, 190, 700, 700, 
+           680, 750, 785, 820, 855, 890, 925, 845, 800, 900]
+    gHt = [monHeight * num / 1000 for num in gHt]
+    
+    
     #Create line diving instructions, toolbar, and image
-    divideLine1 = Line(Point(498, 0), Point(498, 1000))
+    divideLine1 = graphics.Line(graphics.Point(gLen[0], gHt[0]), graphics.Point(gLen[1], gHt[1]))
     divideLine1.setWidth(2)
     divideLine1.draw(win)
     
-    divideLine2 = Line(Point(0, 600), Point(498, 600))
+    divideLine2 = graphics.Line(graphics.Point(gLen[2], gHt[2]), graphics.Point(gLen[3], gHt[3]))
     divideLine2.setWidth(2)
     divideLine2.draw(win)
     
-    instructionLable = Text(Point(250, 25), 'Instructions')
+    instructionLable = graphics.Text(graphics.Point(gLen[4], gHt[4]), 'Instructions')
     instructionLable.setSize(20)
     instructionLable.setStyle('italic')
     instructionLable.draw(win)
     
-    toolLabel = Text(Point(250, 625), 'Toolbar')
+    toolLabel = graphics.Text(graphics.Point(gLen[5], gHt[5]), 'Toolbar')
     toolLabel.setSize(20)
     toolLabel.setStyle('italic')
     toolLabel.draw(win)
     
-    imageLabel = Text(Point(1000, 500), 'Upload Image Here')
+    imageLabel = graphics.Text(graphics.Point(gLen[6], gHt[6]), 'Upload Image Here')
     imageLabel.setSize(20)
     imageLabel.setStyle('italic')
     imageLabel.draw(win)
     
     #INSTRUCTIONS
-    instruction1 = Text(Point(250, 75), "1.) Enter the name of the image file, then click ENTER. \
+    instruction1 = graphics.Text(graphics.Point(gLen[7], gHt[7]), "1.) Enter the name of the image file, then click ENTER. \
     \n Note that the file must be saved as .png \n (ex. filename.png)")
     instruction1.draw(win)
 
-    entry1 = Entry(Point(250, 125), 25)
+    entry1 = graphics.Entry(graphics.Point(gLen[8], gHt[8]), 25)
     entry1.draw(win)
     
-    enterButton1 = Button(win, Point(425, 125), 80, 20, '#52E643', 'ENTER')
+    enterButton1 = Button(win, graphics.Point(gLen[9], gHt[9]), 80, 20, '#52E643', 'ENTER')
     
     #Click enterButton, open the image, deactivate image
     loop = True
@@ -67,31 +80,31 @@ def createBoard(win):
                 enterButton1.activate()
                 
     #Upload image into window
-    myImage = Image(Point(1000, 500), imageName)
+    myImage = graphics.Image(graphics.Point(gLen[10], gHt[10]), imageName)
     myImage.draw(win)
     enterButton1.deactivate()
                     
-    instruction2 = Text(Point(250, 190), "2.) Click on the buttons below to place an atom or ring center. \
+    instruction2 = graphics.Text(graphics.Point(gLen[11], gHt[11]), "2.) Click on the buttons below to place an atom or ring center. \
     \n Double click to place the object on the image. \
     \n Then click FINISH when all of the objects have been placed.")
     instruction2.draw(win)
     
     #Create TOOLBAR
-    siButton = Button(win, Point(300, 700), 40, 25, '#1DAA43', 'Si')
-    oButton = Button(win, Point(400, 700), 40, 25, '#FF1D0F', 'O')
+    siButton = Button(win, graphics.Point(gLen[12], gHt[12]), 40, 25, '#1DAA43', 'Si')
+    oButton = Button(win, graphics.Point(gLen[13], gHt[13]), 40, 25, '#FF1D0F', 'O')
     
-    generalRing = Button(win, Point(100, 680), 140, 34, '#F8A61E', 'General Ring')
-    button4MR = Button(win, Point(100, 750), 140, 22, '#9E4BF6', '4 Membered Ring')
-    button5MR = Button(win, Point(100, 785), 140, 22, '#4BB0F6', '5 Membered Ring')
-    button6MR = Button(win, Point(100, 820), 140, 22, '#43C47F', '6 Membered Ring')
-    button7MR = Button(win, Point(100, 855), 140, 22, '#F9DE3E', '7 Membered Ring')
-    button8MR = Button(win, Point(100, 890), 140, 22, '#F94C3E', '8 Membered Ring')
-    button9MR = Button(win, Point(100, 925), 140, 22, '#F726E8', '9 Membered Ring')
+    generalRing = Button(win, graphics.Point(gLen[14], gHt[14]), 140, 34, '#F8A61E', 'General Ring')
+    button4MR = Button(win, graphics.Point(gLen[15], gHt[15]), 140, 22, '#9E4BF6', '4 Membered Ring')
+    button5MR = Button(win, graphics.Point(gLen[16], gHt[16]), 140, 22, '#4BB0F6', '5 Membered Ring')
+    button6MR = Button(win, graphics.Point(gLen[17], gHt[17]), 140, 22, '#43C47F', '6 Membered Ring')
+    button7MR = Button(win, graphics.Point(gLen[18], gHt[18]), 140, 22, '#F9DE3E', '7 Membered Ring')
+    button8MR = Button(win, graphics.Point(gLen[19], gHt[19]), 140, 22, '#F94C3E', '8 Membered Ring')
+    button9MR = Button(win, graphics.Point(gLen[20], gHt[20]), 140, 22, '#F726E8', '9 Membered Ring')
    
     
-    removeButton = Button(win, Point(350, 845), 100, 25, '#F96A61', 'REMOVE')
-    doneButton = Button(win, Point(350, 800), 100, 25, '#41EFC9', 'DONE')
-    finishButton = Button(win, Point(350, 900), 120, 30, '#D4FF33', 'FINISH')
+    removeButton = Button(win, graphics.Point(gLen[21], gHt[21]), 100, 25, '#F96A61', 'REMOVE')
+    doneButton = Button(win, graphics.Point(gLen[22], gHt[22]), 100, 25, '#41EFC9', 'DONE')
+    finishButton = Button(win, graphics.Point(gLen[23], gHt[23]), 120, 30, '#D4FF33', 'FINISH')
     
     
     return [siButton, oButton, generalRing, button4MR, button5MR, button6MR, button7MR, button8MR, \
@@ -168,21 +181,21 @@ def plotDistribution(labelLst, colorLst, centerPointsLst):
 def errorMessage(message):
     """Displays an error message in a new window"""
     
-    win = GraphWin('Error Message', 350, 175)
+    win = graphics.GraphWin('Error Message', 350, 175)
     win.setBackground('#F75454')
     
     
-    error = Text(Point(win.getWidth()/2, win.getHeight()/2 - 50), 'Error')
+    error = graphics.Text(graphics.Point(win.getWidth()/2, win.getHeight()/2 - 50), 'Error')
     error.setSize(30)
     error.setStyle('bold')
     error.draw(win) 
     
-    text = Text(Point(win.getWidth()/2, win.getHeight()/2), message)
+    text = graphics.Text(graphics.Point(win.getWidth()/2, win.getHeight()/2), message)
     text.setFace('times roman')
     text.draw(win)
     
     #Press OK button to close the window
-    okButton = Button(win, Point(win.getWidth()/2, win.getHeight()/2 + 55), 100, 30, 'lightgrey', 'OK')
+    okButton = Button(win, graphics.Point(win.getWidth()/2, win.getHeight()/2 + 55), 100, 30, 'lightgrey', 'OK')
     loop = True
     while loop:
         mousePress = win.getMouse()
@@ -193,18 +206,18 @@ def errorMessage(message):
             
 def alertMessage(message):
     """Displays an error message in a new window"""
-    win = GraphWin('Alert Message', 300, 100)
+    win = graphics.GraphWin('Alert Message', 300, 100)
     win.setBackground('#6FF3CC')
     
-    text = Text(Point(win.getWidth()/2, win.getHeight()/2 - 20), message)
+    text = graphics.Text(graphics.Point(win.getWidth()/2, win.getHeight()/2 - 20), message)
     text.setSize(11)
     text.setFace('times roman')
     text.draw(win)
     
     
-    okButton = Button(win, Point(win.getWidth()/2 - 70, win.getHeight()/2 + 30), 80, 25, 'lightgrey', 'OK')
+    okButton = Button(win, graphics.Point(win.getWidth()/2 - 70, win.getHeight()/2 + 30), 80, 25, 'lightgrey', 'OK')
     okButton.setSizeText(10)
-    cancelButton = Button(win, Point(win.getWidth()/2 + 70, win.getHeight()/2 + 30), 80, 25, 'lightgrey', 'CANCEL')
+    cancelButton = Button(win, graphics.Point(win.getWidth()/2 + 70, win.getHeight()/2 + 30), 80, 25, 'lightgrey', 'CANCEL')
     cancelButton.setSizeText(10)
     
     #Press OK button to continue with function or cancel to quit alert window
@@ -345,41 +358,41 @@ def main(win):
             
             #Find pixel -> nm conversion factor           
             #Enter Pixel dimensions
-            instruction3 = Text(Point(250, 265), "3.) Enter the size of the image file in pixels. \
+            instruction3 = graphics.Text(graphics.Point(250, 265), "3.) Enter the size of the image file in pixels. \
             \n Note that the entry must include a decimal point.\n(ex. 900.0 x 900.0 pixels)")
             instruction3.draw(win)
              
             #Enter nm dimensions
-            instruction4 = Text(Point(250, 360), "4.) Enter the size of the image file in nanometers (nm). \
+            instruction4 = graphics.Text(graphics.Point(250, 360), "4.) Enter the size of the image file in nanometers (nm). \
             \n Note that the entry must include a decimal point.\n(ex. 5.0 x 5.0 nm)")
             instruction4.draw(win)
                             
             #Set up entry boxes for user
-            nmBoxH = Entry(Point(282, 405), 7)
+            nmBoxH = graphics.Entry(graphics.Point(282, 405), 7)
             nmBoxH.draw(win)
             
-            text2 = Text(Point(237.5, 405), "X")
+            text2 = graphics.Text(graphics.Point(237.5, 405), "X")
             text2.draw(win)
             
-            txtLabel2 = Text(Point(330, 405), "nm")
+            txtLabel2 = graphics.Text(graphics.Point(330, 405), "nm")
             txtLabel2.draw(win)
         
-            nmBoxW = Entry(Point(194, 405), 7)
+            nmBoxW = graphics.Entry(graphics.Point(194, 405), 7)
             nmBoxW.draw(win)
                 
-            pixBoxH = Entry(Point(282, 310), 7)
+            pixBoxH = graphics.Entry(graphics.Point(282, 310), 7)
             pixBoxH.draw(win)
         
-            text = Text(Point(237.5, 310), "X")
+            text = graphics.Text(graphics.Point(237.5, 310), "X")
             text.draw(win)
         
-            txtLabel = Text(Point(340, 310), "pixels")
+            txtLabel = graphics.Text(graphics.Point(340, 310), "pixels")
             txtLabel.draw(win)
         
-            pixBoxW = Entry(Point(194, 310), 7)
+            pixBoxW = graphics.Entry(graphics.Point(194, 310), 7)
             pixBoxW.draw(win)
 
-            enterButton2 = Button(win, Point(425, 405), 85, 20, '#52E643', 'ENTER')
+            enterButton2 = Button(win, graphics.Point(425, 405), 85, 20, '#52E643', 'ENTER')
         
             #Program dimensions enter button
             loop2 = True
@@ -404,7 +417,7 @@ def main(win):
                         (float(nmHeight) / float(pixHeight))) / 2)
 
                         #Finish the program after user has input dimensions
-                        instruction5 = Text(Point(250, 450), "5.) Click on the buttons below to finish the program.")
+                        instruction5 = graphics.Text(graphics.Point(250, 450), "5.) Click on the buttons below to finish the program.")
                         instruction5.draw(win)
                         
                         enterButton2.deactivate()
@@ -418,11 +431,11 @@ def main(win):
                     
 
     #Create final buttons
-    exportButton = Button(win, Point(100, 520), 100, 40, '#FFEE33', 'Export to \n xyz File')
+    exportButton = Button(win, graphics.Point(100, 520), 100, 40, '#FFEE33', 'Export to \n xyz File')
     exportButton.setBoldText()
-    distButton = Button(win, Point(250, 520), 150, 40, '#33D6FF', 'Show Distribution \n Graph')
+    distButton = Button(win, graphics.Point(250, 520), 150, 40, '#33D6FF', 'Show Distribution \n Graph')
     distButton.setBoldText()
-    quitButton = Button(win, Point(400, 520), 100, 40, '#FF3369', 'QUIT')
+    quitButton = Button(win, graphics.Point(400, 520), 100, 40, '#FF3369', 'QUIT')
     quitButton.setBoldText()
     
     

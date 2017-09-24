@@ -1,8 +1,7 @@
 ## Create the general ring class
 
 # IMPORTS
-from graphics import *
-from Image import PIL
+import graphics
 
 #win = GraphWin('Test Remove', 500, 500)
 
@@ -25,12 +24,12 @@ class Ring:
         self.radius = radius
 
         
-        self.circle = Circle(self.center, radius)
+        self.circle = graphics.Circle(self.center, radius)
         self.circle.draw(win)
         
         self.label = label
 
-        self.text = Text(self.center, self.label)
+        self.text = graphics.Text(self.center, self.label)
         self.text.setSize(8)
         self.text.draw(win)
 
@@ -80,8 +79,8 @@ class Ring:
     def getCenter(self):
         return self.center
     
-    def getLabel(self):
-        return self.label
+#    def getLabel(self):
+#        return self.label
         
         
 ##def main(win):

@@ -1,8 +1,7 @@
 ## Create the general button class
 
 # IMPORTS
-from graphics import *
-from Image import PIL
+import graphics
 
 class Button:
 
@@ -22,13 +21,13 @@ class Button:
         x,y = center.getX(), center.getY()
         self.xmax, self.xmin = x+w, x-w
         self.ymax, self.ymin = y+h, y-h
-        p1 = Point(self.xmin, self.ymin)
-        p2 = Point(self.xmax, self.ymax)
+        p1 = graphics.Point(self.xmin, self.ymin)
+        p2 = graphics.Point(self.xmax, self.ymax)
         
-        self.rect = Rectangle(p1,p2)
+        self.rect = graphics.Rectangle(p1,p2)
         self.rect.draw(win)
         
-        self.label = Text(center, label)
+        self.label = graphics.Text(center, label)
         
         self.label.draw(win)
         self.activate()
