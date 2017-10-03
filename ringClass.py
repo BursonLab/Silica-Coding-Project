@@ -7,7 +7,7 @@ import graphics
 
 class Ring:
 
-    """A button is a labeled curcle in a window.
+    """A button is a labeled circle in a window.
     It is activated or deactivated with the activate()
     and deactivate() methods. The clicked(p) method
     returns true if the button is active and p is inside it."""
@@ -51,7 +51,7 @@ class Ring:
 
     def getLabel(self):
         """RETURNS the label string of this button."""
-        return self.label.getText()
+        return self.label
 
     def activate(self):
         """Sets this button to 'active'."""

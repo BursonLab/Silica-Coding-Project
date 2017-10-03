@@ -7,34 +7,61 @@ PROGRAM DESCRPTION:   Program to place rings/atoms on an image and returns the c
 
 #IMPORTS
 import graphics
-#from PIL import Image
 from buttonClass import Button
 from ringClass import Ring
 import matplotlib.pylab as plt
-#import numpy as np
+
+import math
+import numpy
+
+from skimage import io
+from skimage import feature
+from skimage import draw
+from skimage import util
+from skimage import color
+from skimage import viewer
+
+from sklearn.neighbors import NearestNeighbors
 
 #set monitor size in pixels: original height is 1500 by 1000
 monLen = 1350
 monHeight = 690
+imageName = ""
 
 #Set up main windown
 win = graphics.GraphWin('Ring Analyzer', monLen, monHeight)
 
+def getBlobCenters(blobs):
+    """Given a list of blobs, will return the centers of each one
+       as a point object shifted to fit the screen"""
+    centers = []
+    
+    for blob in blobs:
+        x_coord = int(blob[1]) + monLen - 1000
+        y_coord = int(blob[0])
+    
+        centers.append([x_coord, y_coord])
+    
+    return centers
+
+
 def createBoard(win):
     """Creates program boad & instructions"""
+
     
-    #list of graphics positions, convert to fit monLen, monHeight
-    gLen = [498, 498, 0, 498, 250, 250, 1000, 250, 250, 425, 1000, 250, 300, 400,
-          100, 100, 100, 100, 100, 100, 100, 350, 350, 350]
-    gLen = [(num / 1500) * monLen for num in gLen]
+    
+    #list of graphics positions, convert to fit monLen, monHeight, some vars
+    gLen = [498, 498, 0, 498, 250, 250, 1000, 250, 175, 425, 1000, 250, 300, 400,
+          100, 100, 100, 100, 100, 100, 100, 350, 350, 350, 100]
+    gLen = [(num / 500) * (monLen - 1000) for num in gLen]
     
     gHt = [0, 1000, 600, 600, 25, 625, 500, 75, 140, 140, 500, 190, 700, 700, 
-           680, 750, 785, 820, 855, 890, 925, 845, 800, 900]
+           680, 750, 785, 820, 855, 890, 925, 845, 800, 900, 600]
     gHt = [monHeight * num / 1000 for num in gHt]
     
-    
     #Create line diving instructions, toolbar, and image
-    divideLine1 = graphics.Line(graphics.Point(gLen[0], gHt[0]), graphics.Point(gLen[1], gHt[1]))
+    divideLine1 = graphics.Line(graphics.Point(monLen - 1000, gHt[0]), 
+                                graphics.Point(monLen - 1000, gHt[1]))
     divideLine1.setWidth(2)
     divideLine1.draw(win)
     
@@ -71,6 +98,7 @@ def createBoard(win):
     loop = True
     while loop:
         if enterButton1.clicked(win.getMouse()):
+            global imageName
             imageName = entry1.getText()
             #Check user imput for name of file
             if imageName != '' and imageName[-4:] == '.png':
@@ -80,10 +108,10 @@ def createBoard(win):
                 enterButton1.activate()
                 
     #Upload image into window
-    myImage = graphics.Image(graphics.Point(gLen[10], gHt[10]), imageName)
+    myImage = graphics.Image(graphics.Point(monLen - 500, monHeight/2), imageName)
     myImage.draw(win)
     enterButton1.deactivate()
-                    
+    
     instruction2 = graphics.Text(graphics.Point(gLen[11], gHt[11]), "2.) Click on the buttons below to place an atom or ring center. \
     \n Double click to place the object on the image. \
     \n Then click FINISH when all of the objects have been placed.")
@@ -100,15 +128,14 @@ def createBoard(win):
     button7MR = Button(win, graphics.Point(gLen[18], gHt[18]), 140, 22, '#F9DE3E', '7 Membered Ring')
     button8MR = Button(win, graphics.Point(gLen[19], gHt[19]), 140, 22, '#F94C3E', '8 Membered Ring')
     button9MR = Button(win, graphics.Point(gLen[20], gHt[20]), 140, 22, '#F726E8', '9 Membered Ring')
-   
     
     removeButton = Button(win, graphics.Point(gLen[21], gHt[21]), 100, 25, '#F96A61', 'REMOVE')
     doneButton = Button(win, graphics.Point(gLen[22], gHt[22]), 100, 25, '#41EFC9', 'DONE')
     finishButton = Button(win, graphics.Point(gLen[23], gHt[23]), 120, 30, '#D4FF33', 'FINISH')
+    autoPlaceButton = Button(win, graphics.Point(gLen[24], gHt[24]), 140, 22, '#F8A61E', 'Auto Place')
     
-    
-    return [siButton, oButton, generalRing, button4MR, button5MR, button6MR, button7MR, button8MR, \
-           button9MR, removeButton, finishButton, doneButton]
+    return [siButton, oButton, generalRing, button4MR, button5MR, button6MR, button7MR, button8MR,
+           button9MR, autoPlaceButton, removeButton, finishButton, doneButton]
 
 
 def checkDone(mousePress, doneButton):
@@ -285,7 +312,33 @@ def writeXYZ(filename, atomLst, centerLst):
                 file.write('    ' + str(centerLst[i][j][1]))
                 file.write('    ' + str(centerLst[i][j][2]))
 
+def autoFind(win, centerList, ringsList, colors, labels):
+    """runs autofind method to get all the rings with their sizes. for now, 
+    everything is treated as a general ring"""
 
+    #get the image, convert it to greyscale, and invert it
+    image = io.imread(imageName)
+    grey = color.rgb2grey(image)
+    grey_inv = util.invert(grey)
+
+#    image_width = len(grey)
+#    image_height = len(grey[0])
+    
+        
+    #Find blobs in image and then get the centers from those
+    blobs = feature.blob_dog(grey_inv, min_sigma=0.03, max_sigma=30, 
+                             sigma_ratio=2.8, threshold=0.8, overlap=0.5)
+    centers = getBlobCenters(blobs)
+    
+    #convert centers to graphical object points and add to centerList
+    for center in centers:
+        centerList[2].append(graphics.Point(center[0], center[1]))
+    
+    #create a general ring at each point
+    for centerPt in centerList[2]:
+        ring = Ring(win, centerPt, 10, colors[2], labels[2])
+        ringsList.append(ring)
+    
 
 
 
@@ -318,37 +371,47 @@ def main(win):
         #Place rings when button is clicked
         for i in range(9):
             if buttons[i].clicked(mousePress):
-                placeCenter(win, buttons[i], buttons[11], centerLst[i], \
+                placeCenter(win, buttons[i], buttons[12], centerLst[i], \
                             ringLst, buttons, colorLst[i], labelLst[i])
                 
         #REMOVE atoms/rings when button is clicked
-        if buttons[9].clicked(mousePress):
-            removeRingsLst = []
+        if buttons[10].clicked(mousePress):
             
             #Deactivate all buttons except REMOVE and DONE
-            for i in range(9):
+            for i in range(10):
                 buttons[i].deactivate()
-            buttons[10].deactivate()
+            buttons[11].deactivate()
                 
             #Select rings to remove
-            while buttons[9].getOutlineColor() == 'yellow':
+            while buttons[10].getOutlineColor() == 'yellow':
                 mousePress = win.getMouse()
-                for i in ringLst:
-                    if i.clicked(mousePress):
-                        i.removeRing()
-                        ringLst.remove(i)
-                        
+                for ring in ringLst:
+                    if ring.clicked(mousePress):
                         #Remove center from corresponding list
-                        center = i.getCenter()
+                        center = ring.getCenter()
                         for j in range(len(labelLst)):
-                            if i.getLabel() == labelLst[j]:
-                                centerLst[j].remove(center)
+                            if ring.getLabel() == labelLst[j]:
                             
-                if checkDone(mousePress, buttons[11]) == True:
+                                print(labelLst[j])
+                                print("alppage")
+                            
+                                centerLst[j].remove(center)
+                        
+                        #remove the ring
+                        ring.removeRing()
+                        ringLst.remove(ring)
+                        
+                        
+                            
+                if checkDone(mousePress, buttons[12]) == True:
                     resetButtons(buttons)
-                    
+        
+        #if autofind buttons pressed, run autofind function
+        if buttons[9].clicked(mousePress):
+            autoFind(win, centerLst, ringLst, colorLst, labelLst)
+        
         #Input dimensions of photo when FINISH is clicked
-        elif buttons[10].clicked(mousePress):
+        elif buttons[11].clicked(mousePress):
             #Exist fist while loop
             loop1 = False
                 
