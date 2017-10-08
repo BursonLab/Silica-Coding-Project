@@ -1,3 +1,26 @@
+def xyz_to_list(file):
+    """takes a file and converts it to a list"""
+    text = [] #master list of all the points
+    file_lines = file.readlines() #read all of the lines in the file
+    file_lines = [x.strip() for x in file_lines] #strip off newline char
+    file_lines = file_lines[2:] #remove header lines
+    
+    for line in file_lines:
+        row = []  #create new line
+        
+        rowNum = int(line[0]) #find each chunk of data
+        x = float(line[5:14])
+        y = float(line[18:27])
+        z = float(line[31:40])
+        
+        row.append(rowNum) #add to line
+        row.append(x)
+        row.append(y)
+        row.append(z)
+        text.append(row) #add line to master list
+    return text
+
+
 def get_distance(pt1, pt2):
     """ Finds the distance between two points. """
     x1, y1 = pt1
@@ -100,19 +123,43 @@ class ring_center():
 	""" Contains the location of the ring center, and the type of ring
         (number of members). """
 
-    def __init__(self, x, y, z, type):
+    def __init__(self, x, y, z, ring_type):
         """ Constructor. """
-        self._type = type
+        self._ring_type = ring_type
         self._location = (x, y, z)
         self._atoms = []
 
     def get_location(self):
     	""" Returns the location in (x, y, z) form. """
-    	return self._location
+        	return self._location
+    
+    def get_type(self):
+        """returns type of ring"""
+        return self._ring_type
 
     def set_atom(self, atom);
         """ Puts an atom into self._atoms. """
         self._atoms.append(atom)
+        
+    def get_type(self):
+        """returns type of ring"""
+        return self._ring_type
 
     
+def main():
+    #get files
+    si_file = open('Sample Si template.txt', encoding = 'utf-8')
+    centers_file = open('Sample centers template.txt', encoding = 'utf-8')
+    
+    #convert to lists
+    si_locs = xyz_to_list(si_file)
+    centers = xyz_to_list(centers_file)
 
+    for loc in si_locs:
+        si = Si(loc[1], loc[2], loc[3])
+        si.find_rings(centers)
+        
+
+main()
+    
+    
