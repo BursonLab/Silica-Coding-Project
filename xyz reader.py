@@ -7,7 +7,7 @@ Created on Sat Sep 23 12:56:06 2017
 """
 
 
-def xyx_to_list(file):
+def xyz_to_list(file):
     text = []
     file_lines = file.readlines()
     file_lines = [x.strip() for x in file_lines]
@@ -27,7 +27,7 @@ def xyx_to_list(file):
 
 
 def main():
-    text = xyx_to_list(open('Sample xyz template.txt', encoding = 'utf-8'))
+    text = xyz_to_list(open('Sample xyz template.txt', encoding = 'utf-8'))
     for row in text:
         print(row)
 
