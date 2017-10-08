@@ -1,23 +1,23 @@
 def xyz_to_list(file):
     """takes a file and converts it to a list"""
-    text = [] #master list of all the points
-    file_lines = file.readlines() #read all of the lines in the file
-    file_lines = [x.strip() for x in file_lines] #strip off newline char
-    file_lines = file_lines[2:] #remove header lines
-    
+    text = []  # master list of all the points
+    file_lines = file.readlines()  # read all of the lines in the file
+    file_lines = [x.strip() for x in file_lines]  # strip off newline char
+    file_lines = file_lines[2:]  # remove header lines
+
     for line in file_lines:
-        row = []  #create new line
-        
-        rowNum = int(line[0]) #find each chunk of data
+        row = []  # create new line
+
+        rowNum = int(line[0])  # find each chunk of data
         x = float(line[5:14])
         y = float(line[18:27])
         z = float(line[31:40])
-        
-        row.append(rowNum) #add to line
+
+        row.append(rowNum)  # add to line
         row.append(x)
         row.append(y)
         row.append(z)
-        text.append(row) #add line to master list
+        text.append(row)  # add line to master list
     return text
 
 
@@ -170,11 +170,11 @@ class ring_center():
 
     
 def main():
-    #get files
+    # get files
     si_file = open('Sample Si template.txt', encoding = 'utf-8')
     centers_file = open('Sample centers template.txt', encoding = 'utf-8')
     
-    #convert to lists
+    # convert to lists
     si_locs = xyz_to_list(si_file)
     centers = xyz_to_list(centers_file)
 
