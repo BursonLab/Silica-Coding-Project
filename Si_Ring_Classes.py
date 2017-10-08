@@ -1,8 +1,8 @@
 def get_distance(pt1, pt2):
     """ Finds the distance between two points. """
-    x1, y1 = pt1
-    x2, y2 = pt2
-    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** (1 / 2)
+    x1, y1, z1 = pt1
+    x2, y2, z2 = pt2
+    return ((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2) ** (1 / 2)
 
 
 class Si():
@@ -18,14 +18,20 @@ class Si():
         self._d2 = 0
         self._d3 = 0
 
-    def find_rings(self, ring_list):
+    def find_rings(self, ring_list, x_max, y_max):
         """ Finds the three rings bordering this Si atom, and stores
             them in self._rings. """
         self._findFirst(ring_list)
-        if (len(self.get_rings() == 1)):
+        if (len(self.get_rings()) == 1):
             self._findSecond()
-        else:
+        if (len(self.get_rings()) == 2):
             self._findThird(ring_list)
+        if (self.is_edge(x_max, y_max)):
+            for ring in self._rings:
+                for i in range(len(ring.get_atoms())):
+                    if (ring.get_atoms()[i].is_edge()):
+                        ring.remove(i)
+            self._rings.clear()
 
     def get_location(self):
         """ Returns the (x, y, z) of the atom. """
@@ -34,6 +40,15 @@ class Si():
     def get_rings(self):
         """ Returns the list of rings bordering the atom. """
         return self._rings
+
+    def is_edge(self, max_x, max_y):
+        """ Determines if this Si atom is on the edge of the image
+            returns true if so, false otherwise. """
+
+        # Uses arbitrary value to determine edge cases (10 currently)
+        x, y, _ = self.get_location()
+        d = 10
+        return x < d or x > max_x - d or y < d or y > max_y - d
 
     """ Private Methods """
 
@@ -110,9 +125,17 @@ class ring_center():
     	""" Returns the location in (x, y, z) form. """
     	return self._location
 
-    def set_atom(self, atom);
+    def set_atom(self, atom):
         """ Puts an atom into self._atoms. """
         self._atoms.append(atom)
+
+    def get_atoms(self):
+        """ Returns the atom list """
+        return self._atoms
+
+    def remove(index):
+    	""" Removes an atom from the atom list BY INDEX """
+        self._atoms.del(index)
 
     
 
