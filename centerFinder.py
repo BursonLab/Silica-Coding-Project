@@ -12,6 +12,7 @@ from skimage import morphology
 from skimage import filters
 from skimage import measure
 from skimage import transform
+from skimage import exposure
 
 from sklearn.neighbors import NearestNeighbors
 
@@ -20,28 +21,34 @@ from scipy import ndimage as ndi
 import matplotlib.pyplot as plt
 
 
-filename = "HolesImageLarge.jpg"
+filename = "170908_SiO2@RuVII_STM110_det (27.4x11.5).jpg"
 
 light_centers = False
 
 #Dimensions of image [width, height] in nm
-dimensions = [9.3, 5.6]
+dimensions = [27.4, 11.5]
 #Number of holes in the image
-num_holes = 2
+num_holes = 1
 
 #Outputs
 save_image = False
-output_filename = "LargeImage.png"
+output_filename = ""
 save_xyz_file = False
 xyz_output_filename = "Output.txt"
 
-
-display_result = True
+manual_correct = False
+display_result = False
 
 #Colors for each of the ring numbers
 colors = [[178, 112, 248], [75, 176, 246], [67, 196, 127], [249, 222, 62], [249, 76, 62], [247, 38, 232]]
 
 scaling_factor = 1
+
+#View image in separate viewer
+def viewImage(image):
+    view = viewer.ImageViewer(image)
+    view.show()
+    return view
 
 #Imports and scales the image by a given scaling factor
 def importAndScale(filename):
@@ -54,6 +61,9 @@ image_copy = importAndScale(filename)
 #Convert image to greyscale 
 grey = color.rgb2grey(image)
 
+#Adjust the brightness of the greyscale to make image more uniform
+grey = exposure.equalize_adapthist(exposure.adjust_gamma(grey))
+
 #Invert image if centers are dark, else keep same
 if light_centers:
     grey_inv = grey
@@ -62,12 +72,6 @@ else:
 
 image_width = len(grey)
 image_height = len(grey[0])
-
-#View image in separate viewer
-def viewImage(image):
-    view = viewer.ImageViewer(image)
-    view.show()
-    return view
 
 #Get coordinates of borders of holes from greyscale image
 def getHoleCoords(greyscale, num_holes):
@@ -155,7 +159,8 @@ def getBlobCenters(blobs):
 # threshold -> decrease to detect less intense rings
 # overlap -> fraction of the blobs that are allowed to overlap with each other
 
-blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=30, sigma_ratio=2.8, threshold=0.55, overlap=0.26)
+#blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=30, sigma_ratio=2.8, threshold=0.55, overlap=0.26)
+blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=30, sigma_ratio=2.8, threshold=0.59, overlap=0.3)
 centers = getBlobCenters(blobs)
 
 #Find the average distance to closest neighbor
@@ -178,9 +183,6 @@ def pixelsToNm(pixel_coord, nm_dim, im_width, im_height):
     
     return [pixel_coord[0]*x_scale, pixel_coord[1]*y_scale]
 
-#Plot preliminary center locations on image
-plotCirclesOnImage(image_copy, centers, 10, [0, 0, 250])
-
 def onclick(event):
     #Remove the center that was clicked
     if numpy.array_equal(image_copy[int(event.ydata),int(event.xdata)], [0, 0, 250]):
@@ -195,68 +197,84 @@ def onclick(event):
     #Add a center where the user clicked
     else:
         centers.append([event.xdata, event.ydata]);
+
+def manualCenterCorrect(image_copy, centers):
+    #Plot preliminary center locations on image
+    plotCirclesOnImage(image_copy, centers, 10, [0, 0, 250])
+
+    point_select = viewer.ImageViewer(image_copy)
+    point_select.canvas.mpl_connect('button_press_event', onclick)
+
+    point_select.show()
     
-point_select = viewer.ImageViewer(image_copy)
-cid = point_select.canvas.mpl_connect('button_press_event', onclick)
+if manual_correct:
+    manualCenterCorrect(image_copy, centers)
 
-point_select.show()
+def getNumNeighbors(centers, thresh, average_closest):
+    #Get distances and indices of 9 nearest neighbors to every center
+    distances, indices = getNearestNeighbors(centers, centers, 10)
 
-#Get distances and indices of 9 nearest neighbors to every center
-distances, indices = getNearestNeighbors(centers, centers, 10)
+    #Gets the distances from every center to the nearest point on the edge of a hole
+    hole_distances, hole_inds = getNearestNeighbors(hole_coords, centers, 2)
 
-#Gets the distances from every center to the nearest point on the edge of a hole
-hole_distances, hole_inds = getNearestNeighbors(hole_coords, centers, 2)
+    hole_dist = []
+    ring_size = []
+    center_coord = []
 
-hole_dist = []
-ring_size = []
-center_coord = []
+    for k in range(len(distances)):
+        n_dists = distances[k]
+     
+        #Averages the distances to closest 4 centers and multiplies by a 
+        # threshold to get the max distance for something to be a neighbor
+        max_dist = numpy.mean(n_dists[1:5])*thresh
+    
+        #Determines how many of the neighbors are within the max distance
+        num_neighbors = 9
+        for i in range(4,10):
+            if n_dists[i] > max_dist:
+                num_neighbors = i-1
+                break
+    
+    
+        r_full, c_full = draw.circle(centers[k][1], centers[k][0], max_dist);
+        r_bound, c_bound = draw.circle(centers[k][1], centers[k][0], max_dist, shape=(image_width, image_height));
+    
+        #Gets the percentage of the ring neighbors that are visible in the window
+        percent_visible = len(r_full)/len(r_bound)
+    
+        #Scales the number of neighbors based on what it should be if all the 
+        # ring neighbors were visible
+        scaled_num_neighbors = int(num_neighbors * percent_visible)
+    
+        exclude_thresh = 1.6
+    
+        #Gets the coordinates of the circles around the centers
+        if 4 <= scaled_num_neighbors <= 9 and percent_visible < 1.8 and hole_distances[k][1] > exclude_thresh*average_closest:
+            hole_dist.append(hole_distances[k][1])
+            ring_size.append(scaled_num_neighbors)
+            center_coord.append(centers[k])
+        
+    return hole_dist, ring_size, center_coord
 
 #Threshold for the maximum distance that two centers can be apart to be concidered neighbors
 thresh = 1.35
+    
+hole_dist, ring_size, center_coord = getNumNeighbors(centers, thresh, average_closest)
 
-for k in range(len(distances)):
-    n_dists = distances[k]
-     
-    #Averages the distances to closest 4 centers and multiplies by a 
-    # threshold to get the max distance for something to be a neighbor
-    max_dist = numpy.mean(n_dists[1:5])*thresh
-    
-    #Determines how many of the neighbors are within the max distance
-    num_neighbors = 9
-    for i in range(4,10):
-        if n_dists[i] > max_dist:
-            num_neighbors = i-1
-            break
-    
-    
-    r_full, c_full = draw.circle(centers[k][1], centers[k][0], max_dist);
-    r_bound, c_bound = draw.circle(centers[k][1], centers[k][0], max_dist, shape=(image_width, image_height));
-    
-    #Gets the percentage of the ring neighbors that are visible in the window
-    percent_visible = len(r_full)/len(r_bound)
-    
-    #Scales the number of neighbors based on what it should be if all the 
-    # ring neighbors were visible
-    scaled_num_neighbors = int(num_neighbors * percent_visible)
-    
-    exclude_dist = 50
-    
-    #Gets the coordinates of the circles around the centers
-    if 4 <= scaled_num_neighbors <= 9 and percent_visible < 1.8 and hole_distances[k][1] > exclude_dist:
-        hole_dist.append(hole_distances[k][1])
-        ring_size.append(scaled_num_neighbors)
-        center_coord.append(centers[k])
-        
+def plotRingCenters(image, ring_size, centers, average_closest):
+    for i in range(len(ring_size)):
         #Get circle coordinates for outlines and actual circles for centers
-        r_out, c_out = draw.circle(centers[k][1], centers[k][0], 15, shape=(image_width, image_height))
-        rr, cc = draw.circle(centers[k][1], centers[k][0], 12, shape=(image_width, image_height))
+        r_out, c_out = draw.circle(centers[i][1], centers[i][0], int(average_closest/3)+3, shape=(image_width, image_height))
+        rr, cc = draw.circle(centers[i][1], centers[i][0], int(average_closest/3), shape=(image_width, image_height))
                 
         #Plot outlines
         image[r_out, c_out] = [0, 0, 0]
         
         #Assign appropriate colors to center coordinates
-        image[rr, cc] = colors[scaled_num_neighbors-4]
-
+        image[rr, cc] = colors[ring_size[i]-4]
+        
+plotRingCenters(image, ring_size, center_coord, average_closest)
+        
 #Outputs the center data in xyz file format
 def createXyzFile(center_coord, ring_size):
     text_file = open(xyz_output_filename, "w")
@@ -270,12 +288,12 @@ def createXyzFile(center_coord, ring_size):
 # a given bin size and plots histograms of all of the bins 
 def splitRingsIntoBins(bin_size, hole_dist, ring_size):
     bin_list = []
-    bin_labels = []
+    bin_mids = []
     
     max_dist = int(numpy.amax(hole_dist))
     
     for k in range(0, max_dist, bin_size):
-        bin_labels.append(str(k) + '-' + str(k + bin_size))
+        bin_mids.append(k + (bin_size/2))
         
         cur_bin = []
         for i in range(len(hole_dist)):
@@ -284,13 +302,42 @@ def splitRingsIntoBins(bin_size, hole_dist, ring_size):
         
         bin_list.append(cur_bin)
     
+    return bin_list, bin_mids
+
+def plotBinHist(bin_list):
     #Histograms are normalized so they can be compared on same scale
-    plt.hist(bin_list, bins='auto', normed=True, label=bin_labels)
+    plt.hist(bin_list, bins='auto', normed=True)
     
+def plotRingSizePercent(bin_list, bin_mids):    
+    size_perc = [[],[],[],[],[],[]]
+    
+    for cur_bin in bin_list:
+        bin_perc = [0,0,0,0,0,0]
+        
+        for size in cur_bin:
+            bin_perc[size-4] += 1
+            
+        bin_perc = [x / len(cur_bin) for x in bin_perc]
+        
+        for k in range(6):
+            size_perc[k].append(bin_perc[k])
+        
+    for i in range(len(size_perc)): 
+        plt.plot(bin_mids, size_perc[i], label=str(i+4) + ' MR')
+        
+    legend = plt.legend(loc=0, ncol=2)
+    plt.gca().add_artist(legend)
+    
+    plt.show()
+
 if save_xyz_file:
     createXyzFile(center_coord, ring_size)
 
-splitRingsIntoBins(250, hole_dist, ring_size)
+bin_list, bin_mids = splitRingsIntoBins(180, hole_dist, ring_size)
+
+#plotBinHist(bin_list)
+
+plotRingSizePercent(bin_list, bin_mids)
 
 if display_result:
     #Display image with centers plotted
