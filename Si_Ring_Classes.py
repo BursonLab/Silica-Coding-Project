@@ -166,7 +166,7 @@ class ring_center():
 
     def remove(index):
     	""" Removes an atom from the atom list BY INDEX """
-        self._atoms.del(index)
+        self._atoms.remove(index)
 
     
 def main():
@@ -184,5 +184,3 @@ def main():
         
 
 main()
-    
-    

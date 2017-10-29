@@ -16,22 +16,21 @@ Created on Tue May 30 09:40:34 2017
 @author: Kristen
 """
 
-# finds the distance between two atoms
-
 
 def distance(position1, position2):
+    """ Finds the distance between two atoms. """
     return math.sqrt(math.pow(position1[0] - position2[0], 2) +
                      math.pow(position1[1] - position2[1], 2) +
                      math.pow(position1[2] - position2[2], 2))
 
-# finds if a triplet could have an Si atom between them
-
 
 def dists(positions, dist):
+    """ Finds if a triplet could have an Si atom between them """
 
     # if there were not enough close to make a triplet, return none
     if len(positions) < 3:
         return[""]
+
     # if there is a triplet and they are close enough to have a Si,
     # return the triplet, else return blank
     if len(positions) == 3:
@@ -41,9 +40,7 @@ def dists(positions, dist):
             return[""]
     numbers = []
 
-    if len(positions) == 5:
-        print(1)
-    # if there are more then 2 close enough to have a Si between them, findthe
+    # if there are more then 2 close enough to have a Si between them, find the
     # one that could not given the other two
     for i in range(len(positions)):
         numbers.append(0)
@@ -58,7 +55,7 @@ def dists(positions, dist):
                 numbers[i] -= 1
                 numbers[i + j] -= 1
 
-    # removetheonewiththemostcounters
+    # remove the one with the most counters
     del positions[numbers.index(max(numbers))]
 
     # if these still are not close enough to have a triplet between them,
@@ -68,10 +65,11 @@ def dists(positions, dist):
     else:
         return[""]
 
-# finds four membered rings and returns a list of lists of their locaitons
-
 
 def find_four(opositions, far):
+    """ Finds four membered rings and returns a list of lists of their
+        locations """
+
     rings = [[]]
     remov = []
     # for each oxygen
@@ -118,10 +116,9 @@ def find_four(opositions, far):
 
     return rings
 
-# finds the area of triangle
-
 
 def triarea(p1, p2, p3):
+    """ Finds the area of a triangle. """
     a = distance(p1, p2)
     b = distance(p2, p3)
     c = distance(p1, p3)
@@ -139,10 +136,9 @@ def ringarea(corners):
     area = abs(area) / 2.0
     return float(area)
 
-# finds if the silicon atom is within a 4 membered ring
-
 
 def rem4(rings, si):
+    """ Finds if the silicon atom is within a four membered ring. """
     deletes = []
     for i in range(len(rings)):
         triangles = 0
