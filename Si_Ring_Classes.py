@@ -20,14 +20,6 @@ def xyz_to_list(file):
         text.append(row)  # add line to master list
     return text
 
-def listfile_to_list(file):
-    """takes a file in list format and converts it to a usable list"""
-    #text = []
-    file_string = file.read()
-    x = float(file_string[2:21])
-    y = float(file_string[25:48])
-    z = float(file_string[51])
-    print(x, y, z)
 
 def get_distance(pt1, pt2):
     """ Finds the distance between two points. """
@@ -175,22 +167,22 @@ class ring_center():
 
 def main():
     # get files
-    si_file = open('Si Positions Output 170404.txt', encoding='utf-8')
-    centers_file = open('OfC Positions 120106_008 Python Output.txt', encoding='utf-8')
+    si_file = open('Sample Si template.txt', encoding='utf-8')
+    centers_file = open('Sample centers template.txt', encoding='utf-8')
 
     # convert to lists
-    si_locs = listfile_to_list(si_file)
-    centers = listfile_to_list(centers_file)
+    si_locs = xyz_to_list(si_file)
+    centers = xyz_to_list(centers_file)
 
-#    for loc in si_locs:
-#        si = Si(loc[1], loc[2], loc[3])
-#        si.find_rings(centers)
-#
-#    for si in si_locs:
-#        print(si.get_location(), end=" ")
-#        for ring in si.get_rings():
-#            print(ring.get_location(), end=" ")
-#        print()
+    for loc in si_locs:
+        si = Si(loc[1], loc[2], loc[3])
+        si.find_rings(centers)
+
+    for si in si_locs:
+        print(si.get_location(), end=" ")
+        for ring in si.get_rings():
+            print(ring.get_location(), end=" ")
+        print()
 
 
 main()
