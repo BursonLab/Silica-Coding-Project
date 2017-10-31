@@ -41,7 +41,7 @@ class Si():
         self._d2 = 0
         self._d3 = 0
 
-    def find_rings(self, ring_list, x_max, y_max):
+    def find_rings(self, ring_list):  # removed x_max and y_max
         """ Finds the three rings bordering this Si atom, and stores
             them in self._rings. """
         self._findFirst(ring_list)
@@ -49,12 +49,17 @@ class Si():
             self._findSecond()
         if (len(self.get_rings()) == 2):
             self._findThird(ring_list)
+
+        """
+        Edge case tester for when we get it working
+
         if (self.is_edge(x_max, y_max)):
             for ring in self._rings:
                 for i in range(len(ring.get_atoms())):
                     if (ring.get_atoms()[i].is_edge(x_max, y_max)):
                         ring.remove(i)
             self._rings.clear()
+        """
 
     def get_location(self):
         """ Returns the (x, y, z) of the atom. """
@@ -138,7 +143,7 @@ class ring_center():
     """ Contains the location of the ring center, and the type of ring
         (number of members). """
 
-    def __init__(self, x, y, z):  #removed , ring_type from arguments
+    def __init__(self, x, y, z):  # removed , ring_type from arguments
         """ Constructor. """
 #        self._ring_type = ring_type
         self._location = (x, y, z)
