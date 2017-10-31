@@ -1,6 +1,7 @@
 import math
 import numpy
 import matplotlib.pyplot as plt
+from scipy.spatial import Delaunay
 import Si_Ring_Classes
 
 
@@ -364,7 +365,6 @@ def main():
     # print(xypts)
 
     points = numpy.array(xypts)
-    from scipy.spatial import Delaunay
     tri = Delaunay(points)
     print(len(tri.simplices))
 
@@ -443,7 +443,6 @@ def main():
 #assigns nearest 3 adjacent ring to each Si
 
     center_objects = []
-    print(positions)
     for loc in positions:
         center = Si_Ring_Classes.ring_center(loc[0], loc[1], loc[2])
         center_objects.append(center)
@@ -451,7 +450,7 @@ def main():
     si_objects = []
     for loc in si_locations:
         si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
-        si.find_rings(center_objects, 3, 3)
+        si.find_rings(center_objects)
         si_objects.append(si)
 
     for si in si_objects:
@@ -462,6 +461,25 @@ def main():
 
 #-----------------------------------------------------------------------------#
  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     delete = []
 
     for i in range(len(delete)):
