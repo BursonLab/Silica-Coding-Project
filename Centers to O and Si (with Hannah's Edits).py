@@ -1,6 +1,7 @@
 import math
 import numpy
 import matplotlib.pyplot as plt
+import Si_Ring_Classes
 
 
 def distance(position1, position2):
@@ -419,7 +420,8 @@ def main():
         xOpos.append(o_locations[i][0])
         yOpos.append(o_locations[i][1])
 
-    # write O positions to an out file
+
+   # write O positions to an out file
     out = open("OfC Positions 120106_008 Python Output.txt", "w")
     out.write(str(o_locations))
     out.write("nn")
@@ -437,6 +439,29 @@ def main():
 
     # rings = find four(positions, .35)
 
+#--------------------Addition of ring finding---------------------------------#
+#assigns nearest 3 adjacent ring to each Si
+
+    center_objects = []
+    print(positions)
+    for loc in positions:
+        center = Si_Ring_Classes.ring_center(loc[0], loc[1], loc[2])
+        center_objects.append(center)
+    
+    si_objects = []
+    for loc in si_locations:
+        si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
+        si.find_rings(center_objects, 3, 3)
+        si_objects.append(si)
+
+    for si in si_objects:
+        print(si.get_location(), end=" ")
+        for ring in si.get_rings():
+            print(ring.get_location(), end=" ")
+        print()
+
+#-----------------------------------------------------------------------------#
+ 
     delete = []
 
     for i in range(len(delete)):

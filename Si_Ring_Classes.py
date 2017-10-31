@@ -52,7 +52,7 @@ class Si():
         if (self.is_edge(x_max, y_max)):
             for ring in self._rings:
                 for i in range(len(ring.get_atoms())):
-                    if (ring.get_atoms()[i].is_edge()):
+                    if (ring.get_atoms()[i].is_edge(x_max, y_max)):
                         ring.remove(i)
             self._rings.clear()
 
@@ -162,7 +162,7 @@ class ring_center():
 
     def remove(self, index):
         """ Removes an atom from the atom list BY INDEX """
-        del self._atom[index]
+        del self._atoms[index]
 
 
 def main():
