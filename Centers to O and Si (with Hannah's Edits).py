@@ -482,7 +482,6 @@ def main():
         xOpos.append(o_locations[i][0])
         yOpos.append(o_locations[i][1])
 
-    import matplotlib.pyplot as plt
     plt.triplot(points[:, 0], points[:, 1], tri.simplices.copy())
     plt.plot(points[:, 0], points[:, 1], 'o', color='#2E9AFE')
     plt.scatter(xOpos, yOpos, label='Center Positions', color='#2E9AFE')
