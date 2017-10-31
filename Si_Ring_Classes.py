@@ -138,9 +138,9 @@ class ring_center():
     """ Contains the location of the ring center, and the type of ring
         (number of members). """
 
-    def __init__(self, x, y, z, ring_type):
+    def __init__(self, x, y, z):  #removed , ring_type from arguments
         """ Constructor. """
-        self._ring_type = ring_type
+#        self._ring_type = ring_type
         self._location = (x, y, z)
         self._atoms = []
 
@@ -148,9 +148,9 @@ class ring_center():
         """ Returns the location in (x, y, z) form. """
         return self._location
 
-    def get_type(self):
-        """returns type of ring"""
-        return self._ring_type
+#    def get_type(self):
+#        """returns type of ring"""
+#        return self._ring_type
 
     def set_atom(self, atom):
         """ Puts an atom into self._atoms. """
@@ -166,23 +166,24 @@ class ring_center():
 
 
 def main():
-    # get files
-    si_file = open('Sample Si template.txt', encoding='utf-8')
-    centers_file = open('Sample centers template.txt', encoding='utf-8')
-
-    # convert to lists
-    si_locs = xyz_to_list(si_file)
-    centers = xyz_to_list(centers_file)
-
-    for loc in si_locs:
-        si = Si(loc[1], loc[2], loc[3])
-        si.find_rings(centers)
-
-    for si in si_locs:
-        print(si.get_location(), end=" ")
-        for ring in si.get_rings():
-            print(ring.get_location(), end=" ")
-        print()
+    return
+#    # get files
+#    si_file = open('Sample Si template.txt', encoding='utf-8')
+#    centers_file = open('Sample centers template.txt', encoding='utf-8')
+#
+#    # convert to lists
+#    si_locs = xyz_to_list(si_file)
+#    centers = xyz_to_list(centers_file)
+#
+#    for loc in si_locs:
+#        si = Si(loc[1], loc[2], loc[3])
+#        si.find_rings(centers)
+#
+#    for si in si_locs:
+#        print(si.get_location(), end=" ")
+#        for ring in si.get_rings():
+#            print(ring.get_location(), end=" ")
+#        print()
 
 
 main()
