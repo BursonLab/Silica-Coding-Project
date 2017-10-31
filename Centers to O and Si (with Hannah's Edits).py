@@ -1,5 +1,6 @@
 import math
 import numpy
+import matplotlib.pyplot as plt
 
 
 def distance(position1, position2):
@@ -458,8 +459,8 @@ def main():
 
     import matplotlib.pyplot as plt
     plt.triplot(points[:, 0], points[:, 1], tri.simplices.copy())
-    plt.plot(points[:, 0], points[:, 1], 'o', color='# 2E9AFE')
-    plt.scatter(xOpos, yOpos, label='Center Positions', color='# 2E9AFE')
+    plt.plot(points[:, 0], points[:, 1], 'o', color='#2E9AFE')
+    plt.scatter(xOpos, yOpos, label='Center Positions', color='#2E9AFE')
     plt.scatter(xOpos, yOpos, label='Oxygen Positions', color='r')
     plt.scatter(xSipos, ySipos, label='Silicon Positions', color='g')
 
