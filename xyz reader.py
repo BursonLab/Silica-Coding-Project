@@ -12,7 +12,7 @@ def list_of_centers_to_objects(center_xyz_list):
     for c in center_xyz_list:
         center = Si_Ring_Classes.ring_center(c[0], c[1], c[2], c[3])
         center_obj_list.append(center)
-        
+    return center_obj_list
 
 def xyz_to_list(file):
     text = []
