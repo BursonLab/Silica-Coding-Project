@@ -324,9 +324,11 @@ def main():
     # input center positions
     cpfile = input("Enter the center position as a text file. ")
 
-    x_max = input("Enter the width (x distance) of your in pixels. ")
-    y_max = input("Enter the height (y distance) of your image in pixels. ")
-    edge_buffer = input("Enter the edge buffer distance in pixels. ")
+    x_max = int(input("Enter the width (x distance) of your\
+        image in pixels. "))
+    y_max = int(input("Enter the height (y distance) of your\
+        image in pixels. "))
+    edge_buffer = int(input("Enter the edge buffer distance in pixels. "))
 
     # convert data in file into floats and append to a position list
     with open(cpfile) as f:
@@ -442,7 +444,7 @@ def main():
 
     # rings = find four(positions, .35)
 
-# --------------------Addition of ring finding--------------------------------#
+# --------------------Addition of ring finding------------------------------- #
 # assigns nearest 3 adjacent ring to each Si
 
     center_objects = []
@@ -462,26 +464,7 @@ def main():
             print(ring.get_location(), end=" ")
         print()
 
-# -----------------------------------------------------------------------------#
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+# --------------------------------------------------------------------------- #
 
     delete = []
 
