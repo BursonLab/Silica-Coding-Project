@@ -115,7 +115,8 @@ class Si():
     def is_edge(self, max_x, max_y, edge_buffer):
         """ Determines if this Si atom is on the edge of the image
             returns true if so, false otherwise. """
-        x, y, _ = self.get_location()
+        x = self.get_location()[0]
+        y = self.get_location()[1]
         d = edge_buffer
         return x < d or x > max_x - d or y < d or y > max_y - d
 
