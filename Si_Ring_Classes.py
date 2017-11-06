@@ -21,6 +21,56 @@ def xyz_to_list(file):
     return text
 
 
+def order(lst):
+    """ Returns a new list with the original's data, sorted smallest to
+        largest. Specifically for use with lists of length 3. """
+    ordered = []
+    smallest = lst[0]
+    while len(lst) != 0:
+        for i in range(len(lst)):
+            if lst[0] < smallest:
+                smallest = lst[0]
+        ordered.append(smallest)
+        lst.remove(smallest)
+    return ordered
+
+
+def find_type(atom):
+    """ Determines the type of an Si atom's triplet. Returns that type
+        in smallest-largest order. """
+    rings = atom.get_rings()
+    t1 = rings[0].get_type()
+    t2 = rings[1].get_type()
+    t3 = rings[2].get_type()
+    ordered = order([t1, t2, t3])
+    return (ordered[0], ordered[1], ordered[2])
+
+
+def is_present(lst, target):
+    """ Determines of the target is in the lst. If so, returns true. If
+        not, returns false. """
+    for item in lst:
+        if target == item:
+            return True
+    return False
+
+
+def get_stats(si_list):
+    """ Determines the number of each type of ring triplet [(5, 5, 6),
+        (5, 6, 7), etc] and returns a list of tuples and ints containing the
+        triplet type and the number found: [(5, 6, 7), 10, (5, 5, 5), 15,
+        etc]. """
+    types = []
+    for atom in si_list:
+        typ = find_type(atom)
+        if is_present(types, typ):
+            types[types.index(typ) + 1] += 1
+        else:
+            types.append(typ)
+            types.append(1)
+    return types
+
+
 def get_distance(pt1, pt2):
     """ Finds the distance between two points. """
     x1, y1, z1 = pt1
