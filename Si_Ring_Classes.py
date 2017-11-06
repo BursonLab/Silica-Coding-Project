@@ -25,11 +25,11 @@ def order(lst):
     """ Returns a new list with the original's data, sorted smallest to
         largest. Specifically for use with lists of length 3. """
     ordered = []
-    smallest = lst[0]
     while len(lst) != 0:
+        smallest = lst[0]
         for i in range(len(lst)):
-            if lst[0] < smallest:
-                smallest = lst[0]
+            if lst[i] < smallest:
+                smallest = lst[i]
         ordered.append(smallest)
         lst.remove(smallest)
     return ordered
