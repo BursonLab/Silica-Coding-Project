@@ -188,9 +188,9 @@ class ring_center():
     """ Contains the location of the ring center, and the type of ring
         (number of members). """
 
-    def __init__(self, x, y, z):  # removed , ring_type from arguments
+    def __init__(self, ring_type, x, y, z):  # removed , ring_type from arguments
         """ Constructor. """
-#        self._ring_type = ring_type
+        self._ring_type = ring_type
         self._location = (x, y, z)
         self._atoms = []
 
@@ -198,9 +198,9 @@ class ring_center():
         """ Returns the location in (x, y, z) form. """
         return self._location
 
-#    def get_type(self):
-#        """returns type of ring"""
-#        return self._ring_type
+    def get_type(self):
+        """returns type of ring"""
+        return self._ring_type
 
     def set_atom(self, atom):
         """ Puts an atom into self._atoms. """
