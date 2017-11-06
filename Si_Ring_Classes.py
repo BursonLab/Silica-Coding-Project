@@ -23,7 +23,7 @@ def xyz_to_list(file):
 
 def order(lst):
     """ Returns a new list with the original's data, sorted smallest to
-        largest. Specifically for use with lists of length 3. """
+        largest. """
     ordered = []
     while len(lst) != 0:
         smallest = lst[0]
@@ -73,8 +73,12 @@ def get_stats(si_list):
 
 def get_distance(pt1, pt2):
     """ Finds the distance between two points. """
-    x1, y1, z1 = pt1
-    x2, y2, z2 = pt2
+    x1 = pt1[0]
+    y1 = pt1[1]
+    z1 = pt1[2]
+    x2 = pt2[0]
+    y2 = pt2[1]
+    z2 = pt2[2]
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2) ** (1 / 2)
 
 
@@ -85,7 +89,7 @@ class Si():
     """ Public Methods """
 
     def __init__(self, x, y, z):
-        self._location = (x, y, z)
+        self._location = [x, y, z]
         self._rings = []
         self._d1 = 0
         self._d2 = 0
@@ -111,8 +115,6 @@ class Si():
     def is_edge(self, max_x, max_y, edge_buffer):
         """ Determines if this Si atom is on the edge of the image
             returns true if so, false otherwise. """
-
-        # Uses arbitrary value to determine edge cases (10 currently)
         x, y, _ = self.get_location()
         d = edge_buffer
         return x < d or x > max_x - d or y < d or y > max_y - d
@@ -188,10 +190,10 @@ class ring_center():
     """ Contains the location of the ring center, and the type of ring
         (number of members). """
 
-    def __init__(self, ring_type, x, y, z):  # removed , ring_type from arguments
+    def __init__(self, ring_type, x, y, z):
         """ Constructor. """
         self._ring_type = ring_type
-        self._location = (x, y, z)
+        self._location = [x, y, z]
         self._atoms = []
 
     def get_location(self):
