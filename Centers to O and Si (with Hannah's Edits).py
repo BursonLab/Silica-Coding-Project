@@ -324,10 +324,8 @@ def main():
     # input center positions
     cpfile = input("Enter the center position as a text file. ")
 
-    x_max = int(input("Enter the width (x distance) of your\
-        image in pixels. "))
-    y_max = int(input("Enter the height (y distance) of your\
-        image in pixels. "))
+    x_max = int(input("Enter the width (x dist) of your image in pixels. "))
+    y_max = int(input("Enter the height (y dist) of your image in pixels. "))
     edge_buffer = int(input("Enter the edge buffer distance in pixels. "))
 
     # convert data in file into floats and append to a position list
