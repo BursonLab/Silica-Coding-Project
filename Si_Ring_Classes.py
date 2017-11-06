@@ -41,25 +41,14 @@ class Si():
         self._d2 = 0
         self._d3 = 0
 
-    def find_rings(self, ring_list):  # removed x_max and y_max
+    def find_rings(self, ring_list, x_max, y_max, edge_buffer):
         """ Finds the three rings bordering this Si atom, and stores
             them in self._rings. """
-        self._findFirst(ring_list)
+        self._findFirst(ring_list, x_max, y_max, edge_buffer)
         if (len(self.get_rings()) == 1):
-            self._findSecond()
+            self._findSecond(ring_list, x_max, y_max, edge_buffer)
         if (len(self.get_rings()) == 2):
-            self._findThird(ring_list)
-
-        """
-        Edge case tester for when we get it working
-
-        if (self.is_edge(x_max, y_max)):
-            for ring in self._rings:
-                for i in range(len(ring.get_atoms())):
-                    if (ring.get_atoms()[i].is_edge(x_max, y_max)):
-                        ring.remove(i)
-            self._rings.clear()
-        """
+            self._findThird(ring_list, x_max, y_max, edge_buffer)
 
     def get_location(self):
         """ Returns the (x, y, z) of the atom. """
@@ -69,20 +58,22 @@ class Si():
         """ Returns the list of rings bordering the atom. """
         return self._rings
 
-    def is_edge(self, max_x, max_y):
+    def is_edge(self, max_x, max_y, edge_buffer):
         """ Determines if this Si atom is on the edge of the image
             returns true if so, false otherwise. """
 
         # Uses arbitrary value to determine edge cases (10 currently)
         x, y, _ = self.get_location()
-        d = 10
+        d = edge_buffer
         return x < d or x > max_x - d or y < d or y > max_y - d
 
     """ Private Methods """
 
-    def _findFirst(self, ring_list):
+    def _findFirst(self, ring_list, x_max, y_max, edge_buffer):
         """ Finds the closest ring center to the atom. If there are
             equidistant centers, puts all into self._rings. """
+        if self.is_edge(x_max, y_max, edge_buffer):
+            return
         distance = 100000000000000000000
         answers = []
         for i in range(len(ring_list)):
@@ -99,9 +90,11 @@ class Si():
                 ring.set_atom(self)
             self._d1 = distance
 
-    def _findSecond(self, ring_list):
+    def _findSecond(self, ring_list, x_max, y_max, edge_buffer):
         """ Finds the second closest ring center to the atom. If there
             are equidistant centers, puts all into self._rings. """
+        if self.is_edge(x_max, y_max, edge_buffer):
+            return
         distance = 100000000000000000000
         answers = []
         for i in range(len(ring_list)):
@@ -119,8 +112,10 @@ class Si():
                 ring.set_atom(self)
             self._d2 = distance
 
-    def _findThird(self, ring_list):
+    def _findThird(self, ring_list, x_max, y_max, edge_buffer):
         """ Finds the second closest ring center to the atom. """
+        if self.is_edge(x_max, y_max, edge_buffer):
+            return
         distance = 100000000000000000000
         answers = []
         for i in range(len(ring_list)):

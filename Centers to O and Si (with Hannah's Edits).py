@@ -324,6 +324,10 @@ def main():
     # input center positions
     cpfile = input("Enter the center position as a text file. ")
 
+    x_max = input("Enter the width (x distance) of your in pixels. ")
+    y_max = input("Enter the height (y distance) of your image in pixels. ")
+    edge_buffer = input("Enter the edge buffer distance in pixels. ")
+
     # convert data in file into floats and append to a position list
     with open(cpfile) as f:
         content = f.readline()
@@ -420,8 +424,7 @@ def main():
         xOpos.append(o_locations[i][0])
         yOpos.append(o_locations[i][1])
 
-
-   # write O positions to an out file
+    # write O positions to an out file
     out = open("OfC Positions 120106_008 Python Output.txt", "w")
     out.write(str(o_locations))
     out.write("nn")
@@ -439,18 +442,18 @@ def main():
 
     # rings = find four(positions, .35)
 
-#--------------------Addition of ring finding---------------------------------#
-#assigns nearest 3 adjacent ring to each Si
+# --------------------Addition of ring finding--------------------------------#
+# assigns nearest 3 adjacent ring to each Si
 
     center_objects = []
     for loc in positions:
         center = Si_Ring_Classes.ring_center(loc[0], loc[1], loc[2])
         center_objects.append(center)
-    
+
     si_objects = []
     for loc in si_locations:
         si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
-        si.find_rings(center_objects)
+        si.find_rings(center_objects, x_max, y_max, edge_buffer)
         si_objects.append(si)
 
     for si in si_objects:
@@ -459,8 +462,8 @@ def main():
             print(ring.get_location(), end=" ")
         print()
 
-#-----------------------------------------------------------------------------#
- 
+# -----------------------------------------------------------------------------#
+
 
 
 
