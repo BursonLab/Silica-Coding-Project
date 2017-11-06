@@ -5,7 +5,14 @@ Created on Sat Sep 23 12:56:06 2017
 
 @author: DanWall
 """
+import Si_Ring_Classes
 
+def list_of_centers_to_objects(center_xyz_list):
+    center_obj_list = []
+    for c in center_xyz_list:
+        center = Si_Ring_Classes.ring_center(c[0], c[1], c[2], c[3])
+        center_obj_list.append(center)
+        
 
 def xyz_to_list(file):
     text = []
