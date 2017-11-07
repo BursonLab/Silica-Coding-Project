@@ -75,11 +75,11 @@ def get_distance(pt1, pt2):
     """ Finds the distance between two points. """
     x1 = pt1[0]
     y1 = pt1[1]
-    z1 = pt1[2]
+    # z1 = pt1[2]
     x2 = pt2[0]
     y2 = pt2[1]
-    z2 = pt2[2]
-    return ((x1 - x2) ** 2 + (y1 - y2) ** 2 + (z1 - z2) ** 2) ** (1 / 2)
+    # z2 = pt2[2]
+    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** (1 / 2)
 
 
 class Si():
@@ -105,8 +105,7 @@ class Si():
         if (len(self.get_rings()) == 2):
             self._findThird(ring_list, x_max, y_max, edge_buffer)
         print("size: ", len(self._rings))
-        
-        
+
     def get_location(self):
         """ Returns the (x, y, z) of the atom. """
         return self._location
@@ -136,14 +135,14 @@ class Si():
             c1 = ring_list[i].get_location()
             c2 = self.get_location()
             if get_distance(c1, c2) < distance:
-                answers.clear()
+                answers = []
                 answers.append(ring_list[i])
                 distance = get_distance(c1, c2)
             if get_distance(c1, c2) == distance:
                 answers.append(ring_list[i])
             for ring in answers:
                 self._rings.append(ring)
-                #print(len(self._rings))
+                # print(len(self._rings))
                 ring.set_atom(self)
             self._d1 = distance
 
@@ -159,7 +158,7 @@ class Si():
             c2 = self.get_location()
             dist_2 = get_distance(c1, c2)
             if dist_2 < distance and dist_2 > self._d1:
-                answers.clear()
+                answers = []
                 answers.append(ring_list[i])
                 distance = dist_2
             if dist_2 == distance and dist_2 > self._d1:
@@ -180,7 +179,7 @@ class Si():
             c2 = self.get_location()
             dist_2 = get_distance(c1, c2)
             if dist_2 < distance and dist_2 > self._d2:
-                answers.clear()
+                answers = []
                 answers.append(ring_list[i])
                 distance = dist_2
             if dist_2 == distance and dist_2 > self._d2:
