@@ -351,17 +351,68 @@ def xyz_to_objects(file):
         center_obj_list.append(center)
     return center_obj_list
 
+#stat functions
+def order(lst):
+    """ Returns a new list with the original's data, sorted smallest to
+        largest. """
+    ordered = []
+    while len(lst) != 0:
+        smallest = lst[0]
+        for i in range(len(lst)):
+            if lst[i] < smallest:
+                smallest = lst[i]
+        ordered.append(smallest)
+        lst.remove(smallest)
+    return ordered
+
+
+def find_type(atom):
+    """ Determines the type of an Si atom's triplet. Returns that type
+        in smallest-largest order. """
+    rings = atom.get_rings()
+    print(rings)
+    t1 = rings[0].get_type()
+    t2 = rings[1].get_type()
+    t3 = rings[2].get_type()
+    ordered = order([t1, t2, t3])
+    return (ordered[0], ordered[1], ordered[2])
+
+
+def is_present(lst, target):
+    """ Determines of the target is in the lst. If so, returns true. If
+        not, returns false. """
+    for item in lst:
+        if target == item:
+            return True
+    return False
+
+
+def get_stats(si_list):
+    """ Determines the number of each type of ring triplet [(5, 5, 6),
+        (5, 6, 7), etc] and returns a list of tuples and ints containing the
+        triplet type and the number found: [(5, 6, 7), 10, (5, 5, 5), 15,
+        etc]. """
+    types = []
+    for atom in si_list:
+        typ = find_type(atom)
+        if is_present(types, typ):
+            types[types.index(typ) + 1] += 1
+        else:
+            types.append(typ)
+            types.append(1)
+    return types
+
 
 
 
 def main():
 
     # input center positions
-    cpfile = "SampleCentersXYZ.txt" #input("Enter the center position as an XYZ file. ")
+    cpfile = "CPSampleXYZ.txt" #input("Enter the center position as an XYZ file. ")
 
-    x_max = int(input("Enter the width (x distance) of your image. "))
-    y_max = int(input("Enter the height (y dist) of your image. "))
-    edge_buffer = int(input("Enter the edge buffer distance. "))
+    x_max = 4 #int(input("Enter the width (x distance) of your image. "))
+    y_max = 4 #int(input("Enter the height (y dist) of your image. "))
+    edge_buffer = 1 #int(input("Enter the edge buffer distance. "))
 
     #convert XYZ file (of centers) to list of center objects
     list_of_centers = xyz_to_objects(cpfile)
@@ -477,7 +528,7 @@ def main():
 
     # find triplets
     triples = o_locator(positions)
-    print("Triples ", triples)
+#    print("Triples ", triples)
 
     # find Si positions
     si_locations = []
@@ -498,8 +549,12 @@ def main():
     for loc in si_locations:
         si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
         si.find_rings(list_of_centers, x_max, y_max, edge_buffer)
+        print()
         si_objects.append(si)
-
+    
+    types = get_stats(si_objects)
+    print(types)
+    
 #    for si in si_objects:
 #        print(si.get_location(), end=" ")
 #        for ring in si.get_rings():

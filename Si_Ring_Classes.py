@@ -99,11 +99,14 @@ class Si():
         """ Finds the three rings bordering this Si atom, and stores
             them in self._rings. """
         self._findFirst(ring_list, x_max, y_max, edge_buffer)
+        print("1st ring found!")
         if (len(self.get_rings()) == 1):
             self._findSecond(ring_list, x_max, y_max, edge_buffer)
         if (len(self.get_rings()) == 2):
             self._findThird(ring_list, x_max, y_max, edge_buffer)
-
+        print("size: ", len(self._rings))
+        
+        
     def get_location(self):
         """ Returns the (x, y, z) of the atom. """
         return self._location
@@ -140,6 +143,7 @@ class Si():
                 answers.append(ring_list[i])
             for ring in answers:
                 self._rings.append(ring)
+                #print(len(self._rings))
                 ring.set_atom(self)
             self._d1 = distance
 
