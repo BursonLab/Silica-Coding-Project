@@ -27,8 +27,8 @@ def dists(positions, dist):
             return[""]
     numbers = []
 
-    if len(positions) == 5:
-        print(1)
+#    if len(positions) == 5:
+#        print(1)
     # if there are more then 2 close enough to have a Si between them, findthe
     #  one that could not given the other two
     for i in range(len(positions)):
@@ -318,43 +318,88 @@ def find_o(positions, dist):
 
     return opositions
 
+def read_xyz_line(line):
+    row = []
+    val = ""
+    
+    for digit in line:
+        digit = str(digit)
+        if (digit == " "):
+            val = float(val)
+            row.append(val)
+            val = ""
+        else:
+            val += digit       
+    return row
+
+def xyz_to_list(file):
+    text = []
+    with open(file) as f:
+        file_lines = f.readline()
+        while(file_lines):
+            row = read_xyz_line(file_lines)
+            text.append(row)
+            file_lines = f.readline()
+#            print(row)
+    return text
+
+def xyz_to_objects(file):
+    center_xyz_list = xyz_to_list(file)
+    center_obj_list = []
+    for c in center_xyz_list:
+        center = Si_Ring_Classes.ring_center(c[0], c[1], c[2], 0)
+        center_obj_list.append(center)
+    return center_obj_list
+
+
+
 
 def main():
 
     # input center positions
-    cpfile = input("Enter the center position as a text file. ")
+    cpfile = "SampleCentersXYZ.txt" #input("Enter the center position as an XYZ file. ")
 
-    x_max = int(input("Enter the width (x dist) of your image in pixels. "))
-    y_max = int(input("Enter the height (y dist) of your image in pixels. "))
-    edge_buffer = int(input("Enter the edge buffer distance in pixels. "))
+    x_max = int(input("Enter the width (x distance) of your image. "))
+    y_max = int(input("Enter the height (y dist) of your image. "))
+    edge_buffer = int(input("Enter the edge buffer distance. "))
 
+    #convert XYZ file (of centers) to list of center objects
+    list_of_centers = xyz_to_objects(cpfile)
+    
+    #make list of all center positions
+    positions = []
+    for center in list_of_centers:
+        position = center.get_location()
+        positions.append(position)
+    
     # convert data in file into floats and append to a position list
-    with open(cpfile) as f:
-        content = f.readline()
+#    with open(cpfile) as f:
+#        content = f.readline()
+#
+#    string = ""
+#
+#    locations = []
+#
+#    for i in range(len(content)):
+#        if content[i] == " ":
+#            locations.append(float(string))
+#            string = ""
+#        else:
+#            string += content[i]
+#
+#    locations.append(float(string))
+#
+#    positions = [[""]]
+#
+#    for i in range(len(locations)):
+#        if i % 3 == 0:
+#            positions[int(i / 3)] = [locations[i]]
+#            positions.append("")
+#        else:
+#            positions[int(i / 3)].append(locations[i])
+#
+#    del positions[len(positions) - 1]
 
-    string = ""
-
-    locations = []
-
-    for i in range(len(content)):
-        if content[i] == " ":
-            locations.append(float(string))
-            string = ""
-        else:
-            string += content[i]
-
-    locations.append(float(string))
-
-    positions = [[""]]
-
-    for i in range(len(locations)):
-        if i % 3 == 0:
-            positions[int(i / 3)] = [locations[i]]
-            positions.append("")
-        else:
-            positions[int(i / 3)].append(locations[i])
-
-    del positions[len(positions) - 1]
 
     # sort positions for the double finder function
 
@@ -370,7 +415,7 @@ def main():
 
     points = numpy.array(xypts)
     tri = Delaunay(points)
-    print(len(tri.simplices))
+    #print(len(tri.simplices))
 
     # print(tri.simplices)
 
@@ -407,15 +452,14 @@ def main():
             remove.append(i + 1)
 
     remove.sort(reverse=True)
-    print(len(o_locations))
+    print("Number of O locations: ", len(o_locations))
     # print(remove)
 
     for i in range(len(remove)):
         del (o_locations[remove[i]])
 
-    print(len(o_locations))
+    print("Number of O locations: ", len(o_locations))
 
-    print(len(o_locations))
 
     xOpos = []
     yOpos = []
@@ -433,7 +477,7 @@ def main():
 
     # find triplets
     triples = o_locator(positions)
-    print(triples)
+    print("Triples ", triples)
 
     # find Si positions
     si_locations = []
@@ -445,22 +489,22 @@ def main():
 # --------------------Addition of ring finding------------------------------- #
 # assigns nearest 3 adjacent ring to each Si
 
-    center_objects = []
-    for loc in positions:
-        center = Si_Ring_Classes.ring_center(loc[0], loc[1], loc[2])
-        center_objects.append(center)
+#    center_objects = []
+#    for loc in positions:
+#        center = Si_Ring_Classes.ring_center(loc[0], loc[1], loc[2])
+#        center_objects.append(center)
 
     si_objects = []
     for loc in si_locations:
         si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
-        si.find_rings(center_objects, x_max, y_max, edge_buffer)
+        si.find_rings(list_of_centers, x_max, y_max, edge_buffer)
         si_objects.append(si)
 
-    for si in si_objects:
-        print(si.get_location(), end=" ")
-        for ring in si.get_rings():
-            print(ring.get_location(), end=" ")
-        print()
+#    for si in si_objects:
+#        print(si.get_location(), end=" ")
+#        for ring in si.get_rings():
+#            print(ring.get_location(), end=" ")
+#        print()
 
 # --------------------------------------------------------------------------- #
 
