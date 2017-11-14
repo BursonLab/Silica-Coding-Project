@@ -20,7 +20,7 @@ from sklearn.neighbors import NearestNeighbors
 
 from scipy import ndimage as ndi
 
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
@@ -55,6 +55,8 @@ def getFilename():
     entryHeight = Tk.StringVar()
     entryWidth = Tk.StringVar()
     entryHoles = Tk.StringVar()
+    xyzImport = Tk.IntVar()
+    entryXyz = Tk.StringVar()
     
     prompt = Tk.Label(master=root, text='Enter the filename of the image')
     prompt.pack(side=Tk.TOP)
@@ -65,6 +67,8 @@ def getFilename():
     def enterFilename():
         #Get Filename from Text Entry
         filename = entryFilename.get()
+        xyz_filename = entryXyz.get()
+        import_xyz = xyzImport.get()
         
         try:
             io.imread(filename)
@@ -83,14 +87,27 @@ def getFilename():
             heightEntry.destroy()
             holesPrompt.destroy()
             holesEntry.destroy()
+            xyzPrompt.destroy()
+            xyzEntry.destroy()
+            importXyzBtn.destroy()
         
             #Call the rest of the program using given parameters
-            centerFinder(filename, dimensions, num_holes)
+            centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename)
         except ValueError:
             messagebox.showerror("Error", "Invalid dimensions and/or number of holes")
         except FileNotFoundError:
             messagebox.showerror("Error", "A file could not be found with that filename")
         
+    def importXyz():
+        if xyzImport.get():
+            xyzPrompt.pack(side=Tk.TOP)
+            xyzEntry.pack(side=Tk.TOP)
+        else:
+            xyzPrompt.pack_forget()
+            xyzEntry.pack_forget()
+            
+    xyzPrompt = Tk.Label(master=root, text='Enter XYZ Filename')
+    xyzEntry = Tk.Entry(master=root, textvariable=entryXyz)
         
     widthPrompt = Tk.Label(master=root, text='Image Width (nm)')
     widthPrompt.pack(side=Tk.TOP)
@@ -110,8 +127,13 @@ def getFilename():
     holesEntry = Tk.Entry(master=root, textvariable=entryHoles)
     holesEntry.pack(side=Tk.TOP)
     
+    importXyzBtn = Tk.Checkbutton(master=root, text='Import XYZ ', variable=xyzImport, command=importXyz)
+    importXyzBtn.pack(side=Tk.TOP)
+    
     continueBtn = Tk.Button(master=root, text='Continue', command=enterFilename)
     continueBtn.pack(side=Tk.TOP)
+    
+    
     
     #Keeps the window open and listens for events
     while True:
@@ -123,12 +145,7 @@ def getFilename():
             pass
         
 
-def centerFinder(filename, dimensions, num_holes):
-    
-    #View image in separate viewer
-    def viewImage(image):
-        plt.imshow(image)
-        plt.show()
+def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):   
         
     #Converts pixel coordinates to nm coordinates based on the dimensions of the image
     def pixelsToNm(pixel_coord, nm_dim, im_width, im_height):
@@ -136,6 +153,12 @@ def centerFinder(filename, dimensions, num_holes):
         y_scale = nm_dim[1]/im_height
         
         return [pixel_coord[0]*x_scale, pixel_coord[1]*y_scale]
+    
+    def nmToPixels(nm_coord, nm_dim, im_width, im_height):
+        x_scale = im_width/nm_dim[0]
+        y_scale = im_height/nm_dim[1]
+        
+        return [int(nm_coord[0]*x_scale), int(nm_coord[1]*y_scale)]
     
         
     #Imports and scales the image by a given scaling factor
@@ -160,6 +183,21 @@ def centerFinder(filename, dimensions, num_holes):
     image_width = len(grey)
     image_height = len(grey[0])
     
+    #Plots circles of a given radius and color on a given image at given coordinates
+    def plotCirclesOnImage(image, coords, radius, color):
+        for coord in coords:
+            rr, cc = draw.circle(coord[1], coord[0], radius, shape=(image_width, image_height))
+            image[rr, cc] = color
+            
+            
+    #Finds the distances and indices of the nearest given number of the base coords
+    # to each of the provided search coords
+    def getNearestNeighbors(base_coords, search_coords, num_neighbors):
+        nearest = NearestNeighbors(n_neighbors=num_neighbors, algorithm='ball_tree').fit(base_coords)
+        dist, ind = nearest.kneighbors(search_coords)
+        return dist, ind
+    
+
     #Get coordinates of borders of holes from greyscale image
     def getHoleCoords(greyscale, num_holes):
         if num_holes > 0:
@@ -210,35 +248,22 @@ def centerFinder(filename, dimensions, num_holes):
     
     holes = getHoleImage(hole_coords)
     
-    #Black out the holes in the greyscale image so no centers will be placed there
-    grey_inv = grey_inv * (1 - holes)
-    
-    #Plots circles of a given radius and color on a given image at given coordinates
-    def plotCirclesOnImage(image, coords, radius, color):
-        for coord in coords:
-            rr, cc = draw.circle(coord[1], coord[0], radius, shape=(image_width, image_height))
-            image[rr, cc] = color
+    if not import_xyz:
+        #Black out the holes in the greyscale image so no centers will be placed there
+        grey_inv = grey_inv * (1 - holes)
+        
+        #Returns a list of the centers of the blobs
+        def getBlobCenters(blobs):
+            centers = []
             
+            for blob in blobs:
+                x_coord = int(blob[1])
+                y_coord = int(blob[0])
             
-    #Finds the distances and indices of the nearest given number of the base coords
-    # to each of the provided search coords
-    def getNearestNeighbors(base_coords, search_coords, num_neighbors):
-        nearest = NearestNeighbors(n_neighbors=num_neighbors, algorithm='ball_tree').fit(base_coords)
-        dist, ind = nearest.kneighbors(search_coords)
-        return dist, ind
-    
-    #Returns a list of the centers of the blobs
-    def getBlobCenters(blobs):
-        centers = []
+                centers.append([x_coord, y_coord])
+            
+            return centers
         
-        for blob in blobs:
-            x_coord = int(blob[1])
-            y_coord = int(blob[0])
-        
-            centers.append([x_coord, y_coord])
-        
-        return centers
-    
         #Find blobs in image in order to locate ring centers
     
         # min_sigma -> increase to find more small rings
@@ -247,25 +272,53 @@ def centerFinder(filename, dimensions, num_holes):
         # threshold -> decrease to detect less intense rings
         # overlap -> fraction of the blobs that are allowed to overlap with each other
     
-    blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=15, sigma_ratio=2.8, threshold=0.57, overlap=0.3)
-    centers = getBlobCenters(blobs)
+        #blobs = feature.blob_dog(grey_inv, min_sigma=0.03, max_sigma=30, sigma_ratio=2.8, threshold=0.8, overlap=0.5)
+        blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=15, sigma_ratio=2.8, threshold=0.57, overlap=0.3)
+        centers = getBlobCenters(blobs)
+        
+        #Find the average distance to closest neighbor
+        c_dist, c_ind = getNearestNeighbors(centers, centers, 2)
+        avg_closest = numpy.median(c_dist[:][1])
+        
+        num_iter = 1
+        
+        for i in range(num_iter):
+            #Blackout regions around already found ring centers
+            #TODO: Possibly look into scaling this based on average closest 
+            average_thresh = 1.6 #2.1#1.6 #1.92
+        
+            plotCirclesOnImage(grey_inv, centers, avg_closest*average_thresh, 0)
+        
+            #Find blobs that may be rings that have not been found on first pass
+            blobs = numpy.concatenate((blobs,feature.blob_dog(grey_inv, min_sigma=0.08, max_sigma=20, sigma_ratio=2.8, threshold=0.8, overlap=0.3)))
+            centers = getBlobCenters(blobs)
     
+    else:
+        
+        def getCentersFromXyz(xyz_filename):
+            centers = []
+            
+            with open(xyz_filename, encoding='utf-8') as f:
+                file_lines = f.readlines()
+    
+            file_lines = [x.strip() for x in file_lines] 
+            
+            for line in file_lines:
+                split_line = line.split(" ")
+                
+                nm_coord = [float(split_line[1]), float(split_line[2])]
+                pixel_coord = nmToPixels(nm_coord, dimensions, image_width, image_height)
+                
+                centers.append(pixel_coord)
+        
+            return centers
+        
+        centers = getCentersFromXyz(xyz_filename)
+        
+        
     #Find the average distance to closest neighbor
     c_dist, c_ind = getNearestNeighbors(centers, centers, 2)
     average_closest = numpy.median(c_dist[:][1])
-    
-    num_iter = 2
-    
-    for i in range(num_iter):
-        #Blackout regions around already found ring centers
-        average_thresh = 1.6
-    
-        plotCirclesOnImage(grey_inv, centers, average_closest*average_thresh, 0)
-    
-        #Find blobs that may be rings that have not been found on first pass
-        blobs = numpy.concatenate((blobs,feature.blob_dog(grey_inv, min_sigma=0.08, max_sigma=20, sigma_ratio=2.8, threshold=0.8, overlap=0.3)))
-        centers = getBlobCenters(blobs)
-    
     
     def getNumNeighbors(centers, thresh, average_closest):
         #Get distances and indices of 9 nearest neighbors to every center
@@ -285,7 +338,7 @@ def centerFinder(filename, dimensions, num_holes):
             #Averages the distances to closest 4 centers and multiplies by a 
             # threshold to get the max distance for something to be a neighbor
             max_dist = numpy.mean(n_dists[1:5])*thresh
-        
+            
             #Determines how many of the neighbors are within the max distance
             num_neighbors = 9
             for i in range(4,10):
