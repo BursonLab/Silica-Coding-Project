@@ -280,7 +280,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         c_dist, c_ind = getNearestNeighbors(centers, centers, 2)
         avg_closest = numpy.median(c_dist[:][1])
         
-        num_iter = 1
+        num_iter = 2
         
         for i in range(num_iter):
             #Blackout regions around already found ring centers
