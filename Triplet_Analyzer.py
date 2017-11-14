@@ -319,9 +319,9 @@ def find_o(positions, dist):
     return opositions
 
 def read_xyz_line(line):
+    """Read a line (String) and convert it to a list"""
     row = []
     val = ""
-    
     for digit in line:
         digit = str(digit)
         if (digit == " "):
@@ -333,6 +333,7 @@ def read_xyz_line(line):
     return row
 
 def xyz_to_list(file):
+    """Reads an XYZ file and converts it to a 2-D list"""
     text = []
     with open(file) as f:
         file_lines = f.readline()
@@ -340,10 +341,10 @@ def xyz_to_list(file):
             row = read_xyz_line(file_lines)
             text.append(row)
             file_lines = f.readline()
-#            print(row)
     return text
 
 def xyz_to_objects(file):
+    """Converts XYZ file to center objects"""
     center_xyz_list = xyz_to_list(file)
     center_obj_list = []
     for c in center_xyz_list:
@@ -543,22 +544,19 @@ def main():
     # rings = find four(positions, .35)
 
 # --------------------Addition of ring finding------------------------------- #
-# assigns nearest 3 adjacent ring to each Si
 
-#    center_objects = []
-#    for loc in positions:
-#        center = Si_Ring_Classes.ring_center(loc[0], loc[1], loc[2])
-#        center_objects.append(center)
-
+    #make a list of the Si atoms as objects
     si_objects = []
     for loc in si_locations:
+        #consturct Si object
         si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
+        #find rings for each object
         si.find_rings(list_of_centers, x_max, y_max, edge_buffer)
-        si_objects.append(si)
+        si_objects.append(si) #add object to list
     
-    types = get_stats(si_objects)
+    types = get_stats(si_objects) #run statistics data and return stat list
     
-    
+    #parse stat list into types and counts
     triplet_types = []
     counts = []
     for i in range(len(types)):
@@ -566,35 +564,25 @@ def main():
             triplet_types.append(types[i])
         else:
             counts.append(types[i])
-            
-    triplet_types = [x for _,x in sorted(zip(counts,triplet_types), reverse=True)]
+    
+    #sort based on most popular type        
+    triplet_types = [x for _,x in sorted(zip(counts,triplet_types), 
+                                         reverse=True)]
     counts = sorted(counts, reverse=True)
     
+    #count total
     total_counts = 0
     for count in counts:
         total_counts += count
-#    print("TOTAL: ", total_counts)
+
+#    print("TOTAL: ", total_counts) #optional printing of total Si triplets
     
+    #Plot Bar chart
     y_pos = numpy.arange(len(triplet_types))
- 
     plt.bar(y_pos, counts, align='center', alpha=0.5)
     plt.xticks(y_pos, triplet_types)
-    #plt.ylabel('Usage')
-    #plt.title('Programming language usage')
-    
-#    print(triplet_types)
-#    print(counts)
-    
-    
-    
     plt.show()
     
-#    for si in si_objects:
-#        print(si.get_location(), end=" ")
-#        for ring in si.get_rings():
-#            print(ring.get_location(), end=" ")
-#        print()
-
 # --------------------------------------------------------------------------- #
 
     delete = []

@@ -1,92 +1,14 @@
-import numpy
 from sklearn.neighbors import NearestNeighbors
 
-#Extra Functions
 
-#def xyz_to_list(file):
-#    """takes a file and converts it to a list"""
-#    text = []  # master list of all the points
-#    file_lines = file.readlines()  # read all of the lines in the file
-#    file_lines = [x.strip() for x in file_lines]  # strip off newline char
-#    file_lines = file_lines[2:]  # remove header lines
-#
-#    for line in file_lines:
-#        row = []  # create new line
-#
-#        rowNum = int(line[0])  # find each chunk of data
-#        x = float(line[5:14])
-#        y = float(line[18:27])
-#        z = float(line[31:40])
-#
-#        row.append(rowNum)  # add to line
-#        row.append(x)
-#        row.append(y)
-#        row.append(z)
-#        text.append(row)  # add line to master list
-#    return text
-#
-#
-#def order(lst):
-#    """ Returns a new list with the original's data, sorted smallest to
-#        largest. """
-#    ordered = []
-#    while len(lst) != 0:
-#        smallest = lst[0]
-#        for i in range(len(lst)):
-#            if lst[i] < smallest:
-#                smallest = lst[i]
-#        ordered.append(smallest)
-#        lst.remove(smallest)
-#    return ordered
-#
-#
-#def find_type(atom):
-#    """ Determines the type of an Si atom's triplet. Returns that type
-#        in smallest-largest order. """
-#    rings = atom.get_rings()
-#    t1 = rings[0].get_type()
-#    t2 = rings[1].get_type()
-#    t3 = rings[2].get_type()
-#    ordered = order([t1, t2, t3])
-#    return (ordered[0], ordered[1], ordered[2])
-#
-#
-#def is_present(lst, target):
-#    """ Determines of the target is in the lst. If so, returns true. If
-#        not, returns false. """
-#    for item in lst:
-#        if target == item:
-#            return True
-#    return False
-#
-#
-#def get_stats(si_list):
-#    """ Determines the number of each type of ring triplet [(5, 5, 6),
-#        (5, 6, 7), etc] and returns a list of tuples and ints containing the
-#        triplet type and the number found: [(5, 6, 7), 10, (5, 5, 5), 15,
-#        etc]. """
-#    types = []
-#    for atom in si_list:
-#        typ = find_type(atom)
-#        if typ != (0, 0, 0):
-#            if is_present(types, typ):
-#                types[types.index(typ) + 1] += 1
-#            else:
-#                types.append(typ)
-#                types.append(1)
-#    return types
-#
-#
-#def get_distance(pt1, pt2):
-#    """ Finds the distance between two points. """
-#    x1 = pt1[0]
-#    y1 = pt1[1]
-#    # z1 = pt1[2]
-#    x2 = pt2[0]
-#    y2 = pt2[1]
-#    # z2 = pt2[2]
-#    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** (1 / 2)
-#
+def get_distance(pt1, pt2):
+    """ Finds the distance between two points. """
+    x1 = pt1[0]
+    y1 = pt1[1]
+    x2 = pt2[0]
+    y2 = pt2[1]
+    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** (1 / 2)
+
 
 class Si():
     """ Contains the location of the Si atom, as well as each of the
@@ -152,13 +74,22 @@ class Si():
     def _findFirst(self, ring_list, x_max, y_max, edge_buffer):
         """ Finds the closest ring center to the atom. If there are
             equidistant centers, puts all into self._rings. """
+        # Excludes any Si atoms that are included as an edge case
         if self.is_edge(x_max, y_max, edge_buffer):
             return
+        
+        # Sets an arbitrary number as the first distance. This number
+        # is used because it will be bigger than any distance
+        # calculated.
         distance = 100000000000000000000
         answers = []
         for i in range(len(ring_list)):
             c1 = ring_list[i].get_location()
             c2 = self.get_location()
+            
+            # Checks if the calculate distance is less than the current
+            # smallest distance. If so, resets the answer list and adds
+            # the newest ring.
             if get_distance(c1, c2) < distance:
                 answers = []
                 answers.append(ring_list[i])
@@ -249,23 +180,4 @@ class ring_center():
 
 def main():
     return
-#    # get files
-#    si_file = open('Sample Si template.txt', encoding='utf-8')
-#    centers_file = open('Sample centers template.txt', encoding='utf-8')
-#
-#    # convert to lists
-#    si_locs = xyz_to_list(si_file)
-#    centers = xyz_to_list(centers_file)
-#
-#    for loc in si_locs:
-#        si = Si(loc[1], loc[2], loc[3])
-#        si.find_rings(centers)
-#
-#    for si in si_locs:
-#        print(si.get_location(), end=" ")
-#        for ring in si.get_rings():
-#            print(ring.get_location(), end=" ")
-#        print()
-
-
 main()
