@@ -1,86 +1,92 @@
-def xyz_to_list(file):
-    """takes a file and converts it to a list"""
-    text = []  # master list of all the points
-    file_lines = file.readlines()  # read all of the lines in the file
-    file_lines = [x.strip() for x in file_lines]  # strip off newline char
-    file_lines = file_lines[2:]  # remove header lines
+import numpy
+from sklearn.neighbors import NearestNeighbors
 
-    for line in file_lines:
-        row = []  # create new line
+#Extra Functions
 
-        rowNum = int(line[0])  # find each chunk of data
-        x = float(line[5:14])
-        y = float(line[18:27])
-        z = float(line[31:40])
-
-        row.append(rowNum)  # add to line
-        row.append(x)
-        row.append(y)
-        row.append(z)
-        text.append(row)  # add line to master list
-    return text
-
-
-def order(lst):
-    """ Returns a new list with the original's data, sorted smallest to
-        largest. """
-    ordered = []
-    while len(lst) != 0:
-        smallest = lst[0]
-        for i in range(len(lst)):
-            if lst[i] < smallest:
-                smallest = lst[i]
-        ordered.append(smallest)
-        lst.remove(smallest)
-    return ordered
-
-
-def find_type(atom):
-    """ Determines the type of an Si atom's triplet. Returns that type
-        in smallest-largest order. """
-    rings = atom.get_rings()
-    t1 = rings[0].get_type()
-    t2 = rings[1].get_type()
-    t3 = rings[2].get_type()
-    ordered = order([t1, t2, t3])
-    return (ordered[0], ordered[1], ordered[2])
-
-
-def is_present(lst, target):
-    """ Determines of the target is in the lst. If so, returns true. If
-        not, returns false. """
-    for item in lst:
-        if target == item:
-            return True
-    return False
-
-
-def get_stats(si_list):
-    """ Determines the number of each type of ring triplet [(5, 5, 6),
-        (5, 6, 7), etc] and returns a list of tuples and ints containing the
-        triplet type and the number found: [(5, 6, 7), 10, (5, 5, 5), 15,
-        etc]. """
-    types = []
-    for atom in si_list:
-        typ = find_type(atom)
-        if is_present(types, typ):
-            types[types.index(typ) + 1] += 1
-        else:
-            types.append(typ)
-            types.append(1)
-    return types
-
-
-def get_distance(pt1, pt2):
-    """ Finds the distance between two points. """
-    x1 = pt1[0]
-    y1 = pt1[1]
-    # z1 = pt1[2]
-    x2 = pt2[0]
-    y2 = pt2[1]
-    # z2 = pt2[2]
-    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** (1 / 2)
-
+#def xyz_to_list(file):
+#    """takes a file and converts it to a list"""
+#    text = []  # master list of all the points
+#    file_lines = file.readlines()  # read all of the lines in the file
+#    file_lines = [x.strip() for x in file_lines]  # strip off newline char
+#    file_lines = file_lines[2:]  # remove header lines
+#
+#    for line in file_lines:
+#        row = []  # create new line
+#
+#        rowNum = int(line[0])  # find each chunk of data
+#        x = float(line[5:14])
+#        y = float(line[18:27])
+#        z = float(line[31:40])
+#
+#        row.append(rowNum)  # add to line
+#        row.append(x)
+#        row.append(y)
+#        row.append(z)
+#        text.append(row)  # add line to master list
+#    return text
+#
+#
+#def order(lst):
+#    """ Returns a new list with the original's data, sorted smallest to
+#        largest. """
+#    ordered = []
+#    while len(lst) != 0:
+#        smallest = lst[0]
+#        for i in range(len(lst)):
+#            if lst[i] < smallest:
+#                smallest = lst[i]
+#        ordered.append(smallest)
+#        lst.remove(smallest)
+#    return ordered
+#
+#
+#def find_type(atom):
+#    """ Determines the type of an Si atom's triplet. Returns that type
+#        in smallest-largest order. """
+#    rings = atom.get_rings()
+#    t1 = rings[0].get_type()
+#    t2 = rings[1].get_type()
+#    t3 = rings[2].get_type()
+#    ordered = order([t1, t2, t3])
+#    return (ordered[0], ordered[1], ordered[2])
+#
+#
+#def is_present(lst, target):
+#    """ Determines of the target is in the lst. If so, returns true. If
+#        not, returns false. """
+#    for item in lst:
+#        if target == item:
+#            return True
+#    return False
+#
+#
+#def get_stats(si_list):
+#    """ Determines the number of each type of ring triplet [(5, 5, 6),
+#        (5, 6, 7), etc] and returns a list of tuples and ints containing the
+#        triplet type and the number found: [(5, 6, 7), 10, (5, 5, 5), 15,
+#        etc]. """
+#    types = []
+#    for atom in si_list:
+#        typ = find_type(atom)
+#        if typ != (0, 0, 0):
+#            if is_present(types, typ):
+#                types[types.index(typ) + 1] += 1
+#            else:
+#                types.append(typ)
+#                types.append(1)
+#    return types
+#
+#
+#def get_distance(pt1, pt2):
+#    """ Finds the distance between two points. """
+#    x1 = pt1[0]
+#    y1 = pt1[1]
+#    # z1 = pt1[2]
+#    x2 = pt2[0]
+#    y2 = pt2[1]
+#    # z2 = pt2[2]
+#    return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** (1 / 2)
+#
 
 class Si():
     """ Contains the location of the Si atom, as well as each of the
@@ -95,16 +101,35 @@ class Si():
         self._d2 = 0
         self._d3 = 0
 
+    def _findClosestThree(self, ring_list, x_max, y_max, edge_buffer):
+        if self.is_edge(x_max, y_max, edge_buffer):
+            return
+        
+        ring_pos = []
+        
+        
+        for ring in ring_list:
+            ring_pos.append(ring.get_location())
+            
+        nearest = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(ring_pos)
+        dist, ind = nearest.kneighbors([self.get_location()])
+        for i in range(len(ind[0])):
+            self._rings.append(ring_list[ind[0][i]])
+        
+        
+
+    
     def find_rings(self, ring_list, x_max, y_max, edge_buffer):
         """ Finds the three rings bordering this Si atom, and stores
-            them in self._rings. """
+            them in self._rings.
         self._findFirst(ring_list, x_max, y_max, edge_buffer)
         print("1st ring found!")
         if (len(self.get_rings()) == 1):
             self._findSecond(ring_list, x_max, y_max, edge_buffer)
         if (len(self.get_rings()) == 2):
             self._findThird(ring_list, x_max, y_max, edge_buffer)
-        print("size: ", len(self._rings))
+        print("size: ", len(self._rings))"""
+        self._findClosestThree(ring_list, x_max, y_max, edge_buffer)
 
     def get_location(self):
         """ Returns the (x, y, z) of the atom. """
@@ -189,6 +214,7 @@ class Si():
                 ring.set_atom(self)
             self._d3 = distance
 
+    
 
 class ring_center():
     """ Contains the location of the ring center, and the type of ring

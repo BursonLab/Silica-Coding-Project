@@ -329,7 +329,7 @@ def read_xyz_line(line):
             row.append(val)
             val = ""
         else:
-            val += digit       
+            val += digit
     return row
 
 def xyz_to_list(file):
@@ -370,12 +370,15 @@ def find_type(atom):
     """ Determines the type of an Si atom's triplet. Returns that type
         in smallest-largest order. """
     rings = atom.get_rings()
-    print(rings)
-    t1 = rings[0].get_type()
-    t2 = rings[1].get_type()
-    t3 = rings[2].get_type()
-    ordered = order([t1, t2, t3])
-    return (ordered[0], ordered[1], ordered[2])
+    if len(rings) == 3:
+        t1 = int(rings[0].get_type())
+        t2 = int(rings[1].get_type())
+        t3 = int(rings[2].get_type())
+        ordered = order([t1, t2, t3])
+        
+        return (str(ordered[0])+ str(ordered[1]) + str(ordered[2]))
+    else:
+        return "000"
 
 
 def is_present(lst, target):
@@ -395,25 +398,27 @@ def get_stats(si_list):
     types = []
     for atom in si_list:
         typ = find_type(atom)
-        if is_present(types, typ):
-            types[types.index(typ) + 1] += 1
-        else:
-            types.append(typ)
-            types.append(1)
+        
+        if typ != '000':
+            if is_present(types, typ):
+                types[types.index(typ) + 1] += 1
+            else:
+                types.append(typ)
+                types.append(1)
     return types
 
 
 
 
 def main():
-
     # input center positions
-    cpfile = "CPSampleXYZ.txt" #input("Enter the center position as an XYZ file. ")
+    cpfile = input("Enter the center position as an XYZ file. ")
 
-    x_max = 4 #int(input("Enter the width (x distance) of your image. "))
-    y_max = 4 #int(input("Enter the height (y dist) of your image. "))
-    edge_buffer = 1 #int(input("Enter the edge buffer distance. "))
+    x_max = float(input("Enter the width (x distance) of your image. "))
+    y_max = float(input("Enter the height (y dist) of your image. "))
+    edge_buffer = float(input("Enter the edge buffer distance. "))
 
+   
     #convert XYZ file (of centers) to list of center objects
     list_of_centers = xyz_to_objects(cpfile)
     
@@ -491,7 +496,7 @@ def main():
                    points[tri.simplices][i][0][1]) / 2.00
         o_locations.append([midptx3, midpty3, 0])
 
-    print(len(o_locations))
+#    print(len(o_locations))
     o_locations.sort
     o_locations = sorted(o_locations)
     # print(o_locations)
@@ -503,13 +508,13 @@ def main():
             remove.append(i + 1)
 
     remove.sort(reverse=True)
-    print("Number of O locations: ", len(o_locations))
+#    print("Number of O locations: ", len(o_locations))
     # print(remove)
 
     for i in range(len(remove)):
         del (o_locations[remove[i]])
 
-    print("Number of O locations: ", len(o_locations))
+#    print("Number of O locations: ", len(o_locations))
 
 
     xOpos = []
@@ -549,11 +554,40 @@ def main():
     for loc in si_locations:
         si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
         si.find_rings(list_of_centers, x_max, y_max, edge_buffer)
-        print()
         si_objects.append(si)
     
     types = get_stats(si_objects)
-    print(types)
+    
+    
+    triplet_types = []
+    counts = []
+    for i in range(len(types)):
+        if i%2 == 0:
+            triplet_types.append(types[i])
+        else:
+            counts.append(types[i])
+            
+    triplet_types = [x for _,x in sorted(zip(counts,triplet_types), reverse=True)]
+    counts = sorted(counts, reverse=True)
+    
+    total_counts = 0
+    for count in counts:
+        total_counts += count
+#    print("TOTAL: ", total_counts)
+    
+    y_pos = numpy.arange(len(triplet_types))
+ 
+    plt.bar(y_pos, counts, align='center', alpha=0.5)
+    plt.xticks(y_pos, triplet_types)
+    #plt.ylabel('Usage')
+    #plt.title('Programming language usage')
+    
+#    print(triplet_types)
+#    print(counts)
+    
+    
+    
+    plt.show()
     
 #    for si in si_objects:
 #        print(si.get_location(), end=" ")
