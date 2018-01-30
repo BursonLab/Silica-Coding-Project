@@ -32,6 +32,10 @@ if sys.version_info[0] < 3:
 else:
     import tkinter as Tk
     from tkinter import messagebox
+    
+from scipy.spatial import Delaunay
+import Si_Ring_Classes
+import matplotlib.pyplot as plt
 
 light_centers = False
 
@@ -149,16 +153,14 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         
     #Converts pixel coordinates to nm coordinates based on the dimensions of the image
     def pixelsToNm(pixel_coord, nm_dim, im_width, im_height):
-        x_scale = nm_dim[0]/im_width
-        y_scale = nm_dim[1]/im_height
-        
-        return [pixel_coord[0]*x_scale, pixel_coord[1]*y_scale]
+        scale = (nm_dim[0]/im_width)
+                
+        return [pixel_coord[0]*scale, pixel_coord[1]*scale]
     
     def nmToPixels(nm_coord, nm_dim, im_width, im_height):
-        x_scale = im_width/nm_dim[0]
-        y_scale = im_height/nm_dim[1]
+        scale = im_width/nm_dim[0]
         
-        return [int(nm_coord[0]*x_scale), int(nm_coord[1]*y_scale)]
+        return [int(nm_coord[0]*scale), int(nm_coord[1]*scale)]
     
         
     #Imports and scales the image by a given scaling factor
@@ -180,13 +182,13 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     else:
         grey_inv = util.invert(grey)
     
-    image_width = len(grey)
-    image_height = len(grey[0])
+    image_width = len(grey[0])
+    image_height = len(grey)
     
     #Plots circles of a given radius and color on a given image at given coordinates
     def plotCirclesOnImage(image, coords, radius, color):
         for coord in coords:
-            rr, cc = draw.circle(coord[1], coord[0], radius, shape=(image_width, image_height))
+            rr, cc = draw.circle(coord[1], coord[0], radius, shape=(image_height, image_width))
             image[rr, cc] = color
             
             
@@ -237,7 +239,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     #Takes the coordinates of the borders of the holes and fills them in to get
     # a mask image of the holes
     def getHoleImage(hole_coords):
-        hole_image = numpy.zeros((image_width,image_height))
+        hole_image = numpy.zeros((image_height,image_width))
         
         for coord in hole_coords:
             hole_image[coord[1],coord[0]] = 1
@@ -348,7 +350,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         
         
             r_full, c_full = draw.circle(centers[k][1], centers[k][0], max_dist);
-            r_bound, c_bound = draw.circle(centers[k][1], centers[k][0], max_dist, shape=(image_width, image_height));
+            r_bound, c_bound = draw.circle(centers[k][1], centers[k][0], max_dist, shape=(image_height, image_width));
         
             #Gets the percentage of the ring neighbors that are visible in the window
             percent_visible = len(r_full)/len(r_bound)
@@ -382,8 +384,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     def plotRingCenters(image, ring_size, centers, average_closest):
         for i in range(len(ring_size)):
             #Get circle coordinates for outlines and actual circles for centers
-            r_out, c_out = draw.circle(centers[i][1], centers[i][0], int(average_closest/3)+3, shape=(image_width, image_height))
-            rr, cc = draw.circle(centers[i][1], centers[i][0], int(average_closest/3), shape=(image_width, image_height))
+            r_out, c_out = draw.circle(centers[i][1], centers[i][0], int(average_closest/3)+3, shape=(image_height, image_width))
+            rr, cc = draw.circle(centers[i][1], centers[i][0], int(average_closest/3), shape=(image_height, image_width))
                     
             #Plot outlines
             image[r_out, c_out] = [0, 0, 0]
@@ -422,11 +424,481 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             bin_list.append(cur_bin)
         
         return bin_list, bin_mids
-    """
-    def plotBinHist(bin_list):
-        #Histograms are normalized so they can be compared on same scale
-        plt.hist(bin_list, bins='auto', normed=True)
-    """
+    
+    def distance(position1, position2):
+        """finds the distance between two atoms"""
+        return math.sqrt(math.pow(position1[0] - position2[0], 2) +
+                     math.pow(position1[1] - position2[1], 2) +
+                     math.pow(position1[2] - position2[2], 2))
+
+
+    def dists(positions, dist):
+        """finds if a triplet could have an Si atom between them"""
+    
+        # if there were not enough close to make a triplet, return none
+        if len(positions) < 3:
+            return[""]
+        # if there is a triplet and they are close enough to have a Si,
+        # return the triplet, else return blank
+        if len(positions) == 3:
+            if distance(positions[1], positions[2]) <= dist:
+                return positions
+            else:
+                return[""]
+        numbers = []
+
+        # if there are more then 2 close enough to have a Si between them, findthe
+        #  one that could not given the other two
+        for i in range(len(positions)):
+            numbers.append(0)
+        for i in range(1, len(positions) - 1):
+            for j in range(1, len(positions) - i):
+                # if two positions are not close enough, add a counter to both.
+                # If they are close enough, remove a counter from both
+                if distance(positions[i], positions[i + j]) > dist:
+                    numbers[i] += 1
+                    numbers[i + j] += 1
+                else:
+                    numbers[i] -= 1
+                    numbers[i + j] -= 1
+    
+        # removetheonewiththemostcounters
+        del positions[numbers.index(max(numbers))]
+    
+        # if these still are not close enough to have a triplet between them,
+        # return none. If they are close enough, return the new triplet
+        if distance(positions[1], positions[2]) <= dist:
+            return positions
+        else:
+            return[""]
+    
+    def triarea(p1, p2, p3):
+        """finds the area of triangle"""
+        a = distance(p1, p2)
+        b = distance(p2, p3)
+        c = distance(p1, p3)
+        s = (a + b + c) / 2
+        return math.sqrt(s * (s - a) * (s - b) * (s - c))
+    
+    
+    def ringarea(corners):
+        n = len(corners)
+        area = 0.0
+        for i in range(n):
+            j = (i + 1) % n
+            area += corners[i][0] * corners[j][1]
+            area -= corners[j][0] * corners[i][1]
+        area = abs(area) / 2.0
+        return float(area)
+    
+    def si_finder(opositions):
+        """finds the position of a Si given a triplet of oxygen"""
+    
+        # characteristic distance
+        dist = 1.6 * math.pow(10, - 1)
+    
+        # sets up the translation to happen around a basepoint(the first point in
+        #  the positions)
+        trans = [[0, 0, 0], [opositions[1][0] - opositions[0][0],
+                             opositions[1][1] - opositions[0][1],
+                             opositions[1][2] - opositions[0][2]],
+                 [opositions[2][0] - opositions[0][0],
+                  opositions[2][1] - opositions[0][1],
+                  opositions[2][2] - opositions[0][2]]]
+    
+        # finds vector perpendicular to the plane of the three points
+        v = numpy.matrix([numpy.linalg.det([[trans[1][1], trans[2][1]],
+                                            [trans[1][2], trans[2][2]]]),
+                          numpy.linalg.det([[trans[1][0], trans[2][0]],
+                                            [trans[1][2], trans[2][2]]]),
+                          numpy.linalg.det([[trans[1][0], trans[2][0]],
+                                            [trans[1][1], trans[2][1]]])])
+    
+        # sets up first rotation matrix about the x axis
+        theta = math.atan2(v.item(1), v.item(2))
+        xmatr = numpy.matrix([[1, 0, 0], [0, math.cos(theta), - math.sin(theta)],
+                              [0, math.sin(theta), math.cos(theta)]])
+        trans1 = numpy.matrix(trans)
+        rot1 = numpy.matrix.dot(trans1, xmatr)
+        v1 = numpy.matrix.dot(v, xmatr)
+    
+        # second rotation matrix about the y axis
+        rho = math.atan2(v1.item(0), v1.item(2))
+        ymatr = numpy.matrix([[math.cos(rho), 0, math.sin(rho)], [0, 1, 0],
+                              [-math.sin(rho), 0, math.cos(rho)]])
+        rot2 = numpy.matrix.dot(rot1, ymatr)
+    
+        # should be in the xy plane now. Have to rotate such that two points
+        #  are on the x axis
+        alph = math.atan2(rot2.item(4), rot2.item(3))
+        bet = math.atan2(rot2.item(7), rot2.item(6))
+        r1 = math.sqrt(math.pow(rot2.item(3), 2) + math.pow(rot2.item(4), 2))
+        r2 = math.sqrt(math.pow(rot2.item(6), 2) + math.pow(rot2.item(7), 2))
+        x = r1 / 2
+        y = r2 * (1 - math.cos(bet - alph)) / (2.0 * math.sin(bet - alph))
+        z = math.sqrt(abs(math.pow(dist, 2) - math.pow(x, 2) - math.pow(y, 2)))
+        si_pos = numpy.matrix([x, y, z])
+    
+        # rotate back to originial position
+        init = math.atan2(si_pos.item(1), si_pos.item(0))
+        r = math.sqrt(math.pow(si_pos.item(0), 2) + math.pow(si_pos.item(1), 2))
+        x = r * math.cos(init + alph)
+        y = r * math.sin(init + alph)
+        si_pos = numpy.matrix([x, y, z])
+    
+        # undo second rotation matrix
+        iymatr = numpy.linalg.inv(ymatr)
+        si_pos = numpy.matrix.dot(si_pos, iymatr)
+    
+        # undo first rotation matrix
+        ixmatr = numpy.linalg.inv(xmatr)
+        si_pos = numpy.matrix.dot(si_pos, ixmatr)
+    
+        # translate back so there is no point at the origin
+        si_pos = [si_pos.item(0) + opositions[0][0],
+                  si_pos.item(1) + opositions[0][1],
+                  si_pos.item(2) + opositions[0][2]]
+    
+        return si_pos
+    
+    
+    def o_locator(opositions):
+        """locates all possible triplets"""
+    
+        # assumed oxygens are ordered by increasing x values
+        # used to collect all the found oxygens close enough to have a single Si
+        #  between them
+        found = [[""]]
+        # for each oxygen
+        for i in range(len(opositions)):
+            found[i] = [opositions[i]]
+            # for each oxygen with an x position higher than the current
+            for j in range(1, len(opositions) - i):
+                # if the x position is less than the possible distance between two
+                #  oxygenatoms(variableinclusionradius)
+                if abs(opositions[i][0] - opositions[i + j][0]) <= \
+                        3.45 * math.pow(10, - 1):
+                    # if the distance between the two oxygens is less than the
+                    #  characteristic distance(variable inclusion radius)
+                    if distance(opositions[i], opositions[i + j]) <= \
+                            3.45 * math.pow(10, - 1):
+                        found[i].append(opositions[i + j])
+            found.append([""])
+        
+        # removes last appended empty list
+        del found[len(found) - 1]
+        
+        # remove all those too far apart using dist function (variable inclusion
+        #  radius)
+        for n in range(len(found)):
+            found[n] = dists(found[n], .345)
+
+        
+        # createanarrayforpositionstoremove
+        remov = []
+        # for all atoms with found oxygens
+        for n in range(len(found)):
+            # add empties to a list for removal
+            if found[n] == [""]:
+                remov.insert(0, n)
+    
+        # remove those in the remove list
+        for m in range(len(remov)):
+            del found[remov[m]]
+    
+        # return the list of those oxygen that have a possible Si between them
+        return found
+    
+    
+    def locate_si(positions, dist):
+        # assumes presorted positions by x position
+        doubles = []
+    
+        # finds all within the given radius and adds those doubles to the list
+        for i in range(len(positions)):
+            for j in range(1, len(positions) - i):
+                if distance(positions[i], positions[i + j]) <= dist:
+                    doubles.append([positions[i], positions[i + j]])
+    
+        return doubles
+    
+    
+    def find_o(positions, dist):
+    
+        opositions = []
+    
+        for i in range(len(positions)):
+            # center at origin
+            pos2 = [positions[i][1][0] - positions[i][0][0], positions[i][1][1] -
+                    positions[i][0][1], positions[i][1][2] - positions[i][0][2]]
+    
+            # rotate until both points are in the xy plane
+            theta = numpy.arctan2(pos2[1], pos2[0])
+            phi = numpy.arctan2(pos2[2], pos2[0])
+            newx = math.sqrt(math.pow(pos2[0], 2) + math.pow(pos2[2], 2))
+            newy = newx * math.tan(theta)
+    
+            # find in si position (midpoint between origin and pos 2 in the x - y
+            #  plane with x making up the difference)
+            x = newx / 2
+            y = newy / 2
+    
+            if math.pow(dist, 2) - math.pow(x, 2) - math.pow(y, 2) > 0:
+                z = math.sqrt(math.pow(dist, 2) - math.pow(x, 2) - math.pow(y, 2))
+            else:
+                z = 0
+    
+            # current angle above x - y plane
+            r = math.sqrt(math.pow(x, 2) + math.pow(y, 2) + math.pow(z, 2))
+            alph = math.asin(z / r)
+    
+            # when rotated back, it will rotate to angle phi + alph
+            opos = [r * math.cos(theta) * math.cos(alph + phi),
+                    r * math.sin(theta) * math.cos(alph + phi),
+                    r * math.sin(alph + phi)]
+    
+            # append to the list
+            opositions.append([opos[0] + positions[i][0][0], opos[1] +
+                               positions[i][0][1], opos[2] + positions[i][0][2]])
+    
+        return opositions
+    
+    def centers_to_objects(ring_size, center_list):
+        """Converts list of centers to center objects"""
+        center_obj_list = []
+        for i in range(len(center_list)):
+            center = Si_Ring_Classes.ring_center(ring_size[i], center_list[i][0], center_list[i][1], 0)
+            center_obj_list.append(center)
+        return center_obj_list
+    
+    #stat functions
+    def order(lst):
+        """ Returns a new list with the original's data, sorted smallest to
+            largest. """
+        ordered = []
+        while len(lst) != 0:
+            smallest = lst[0]
+            for i in range(len(lst)):
+                if lst[i] < smallest:
+                    smallest = lst[i]
+            ordered.append(smallest)
+            lst.remove(smallest)
+        return ordered
+    
+    
+    def find_type(atom):
+        """ Determines the type of an Si atom's triplet. Returns that type
+            in smallest-largest order. """
+        rings = atom.get_rings()
+        if len(rings) == 3:
+            t1 = int(rings[0].get_type())
+            t2 = int(rings[1].get_type())
+            t3 = int(rings[2].get_type())
+            ordered = order([t1, t2, t3])
+            
+            return (str(ordered[0])+ str(ordered[1]) + str(ordered[2]))
+        else:
+            return "000"
+        
+    
+    def get_stats(si_list):
+        """ Determines the number of each type of ring triplet [(5, 5, 6),
+            (5, 6, 7), etc] and returns a list of tuples and ints containing the
+            triplet type and the number found: [(5, 6, 7), 10, (5, 5, 5), 15,
+            etc]. """
+        types = []
+        for atom in si_list:
+            typ = find_type(atom)
+            
+            if typ != '000':
+                if typ in types:
+                    types[types.index(typ) + 1] += 1
+                else:
+                    types.append(typ)
+                    types.append(1)
+        return types
+
+    def getSiOPlot():
+        x_max = dimensions[0]
+        y_max = dimensions[1]
+        edge_buffer = 0.1 #Should look into this a bit more
+        
+        centers_nm = []
+        for coord in center_coord:
+            centers_nm.append(pixelsToNm(coord, dimensions, image_width, image_height))
+    
+       
+        #convert XYZ file (of centers) to list of center objects
+        list_of_centers = centers_to_objects(ring_size, centers_nm)
+        
+        #make list of all center positions
+        positions = []
+        for center in list_of_centers:
+            position = center.get_location()
+            positions.append(position)
+    
+        # sort positions for the double finder function
+    
+        positions = sorted(positions)
+    
+        # Create a Graph of the Input Data
+        xypts = []
+    
+        for i in range(len(positions)):
+            xypts.append([positions[i][0], positions[i][1]])
+    
+        points = numpy.array(xypts)
+        tri = Delaunay(points)
+    
+    
+        o_locations = []
+    
+        for i in range(len(tri.simplices)):
+            midptx1 = 0.50 * (points[tri.simplices][i][0][0] +
+                              points[tri.simplices][i][1][0])
+            midpty1 = 0.50 * (points[tri.simplices][i][0][1] +
+                              points[tri.simplices][i][1][1])
+            o_locations.append([midptx1, midpty1, 0])
+    
+            midptx2 = (points[tri.simplices][i][1][0] +
+                       points[tri.simplices][i][2][0]) / 2.00
+            midpty2 = (points[tri.simplices][i][1][1] +
+                       points[tri.simplices][i][2][1]) / 2.00
+            o_locations.append([midptx2, midpty2, 0])
+    
+            midptx3 = (points[tri.simplices][i][2][0] +
+                       points[tri.simplices][i][0][0]) / 2.00
+            midpty3 = (points[tri.simplices][i][2][1] +
+                       points[tri.simplices][i][0][1]) / 2.00
+            o_locations.append([midptx3, midpty3, 0])
+    
+        o_locations.sort
+        o_locations = sorted(o_locations)
+    
+        remove = []
+    
+        for i in range(len(o_locations) - 1):
+            if o_locations[i] == o_locations[i + 1]:
+                remove.append(i + 1)
+    
+        remove.sort(reverse=True)
+    
+        for i in range(len(remove)):
+            del (o_locations[remove[i]])
+        
+    
+        xOpos = []
+        yOpos = []
+    
+        for i in range(len(o_locations)):
+            xOpos.append(o_locations[i][0])
+            yOpos.append(o_locations[i][1])
+    
+        # write O positions to an out file
+        out = open("OfC Positions 120106_008 Python Output.txt", "w")
+        out.write(str(o_locations))
+        out.write("nn")
+    
+        positions = o_locations
+    
+        # find triplets
+        triples = o_locator(positions)
+    
+        # find Si positions
+        si_locations = []
+        for j in range(len(triples)):
+            si_locations.append(si_finder(triples[j]))
+        
+        #make a list of the Si atoms as objects
+        si_objects = []
+        for loc in si_locations:
+            #consturct Si object
+            si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
+            #find rings for each object
+            si.find_rings(list_of_centers, x_max, y_max, edge_buffer)
+            si_objects.append(si) #add object to list
+        
+        types = get_stats(si_objects) #run statistics data and return stat list
+        
+        #parse stat list into types and counts
+        triplet_types = []
+        counts = []
+        for i in range(len(types)):
+            if i%2 == 0:
+                triplet_types.append(types[i])
+            else:
+                counts.append(types[i])
+        
+        #sort based on most popular type        
+        triplet_types = [x for _,x in sorted(zip(counts,triplet_types), 
+                                             reverse=True)]
+        counts = sorted(counts, reverse=True)
+        
+        #count total
+        total_counts = 0
+        for count in counts:
+            total_counts += count
+            
+        plot_image = io.imread(filename)
+            
+        xSipos = []
+        ySipos = []
+        
+        siCoords = []
+    
+        for i in range(len(si_locations)):
+            siCoords.append(nmToPixels(si_locations[i], dimensions, image_width, image_height))
+            
+            xSipos.append(si_locations[i][0])
+            ySipos.append(si_locations[i][1])
+            
+        plotCirclesOnImage(plot_image, siCoords, 5, [0,250,0])
+    
+        xOpos = []
+        yOpos = []
+        
+        oCoords = []
+    
+        for i in range(len(o_locations)):
+            oCoords.append(nmToPixels(o_locations[i], dimensions, image_width, image_height))
+            
+            xOpos.append(o_locations[i][0])
+            yOpos.append(o_locations[i][1])
+            
+        plotCirclesOnImage(plot_image, oCoords, 5, [250,0,0])
+        
+        #plotCirclesOnImage(plot_image, center_coord, 5, [0,0,250])
+        
+        """
+        plt.triplot(points[:, 0], points[:, 1], tri.simplices.copy())
+        plt.plot(points[:, 0], points[:, 1], 'o', color='#2E9AFE')
+        #plt.scatter(points[:, 0], points[:, 1], label='Center Positions', color='#2E9AFE')
+        plt.scatter(xOpos, yOpos, label='Center Positions', color='#2E9AFE')
+        plt.scatter(xOpos, yOpos, label='Oxygen Positions', color='r')
+        plt.scatter(xSipos, ySipos, label='Silicon Positions', color='g')
+        
+        plt.xlabel('x (nm)')
+        plt.ylabel('y (nm)')
+        plt.title('Center Positions')
+        plt.legend()
+        plt.show()
+        """
+        
+        return plot_image, o_locations, si_locations, triplet_types, counts
+        
+        """
+        for i in range(0,15):
+            center = list_of_centers[i]
+            atoms_x = []
+            atoms_y = []
+            for atom in center.get_atoms():
+                atoms_x.append(atom[0])
+                atoms_y.append(atom[1])
+            
+            #print(atoms_x)
+            plt.fill(atoms_x, atoms_y, color='#091ebc')
+        """
+
     
     def createWindow(image):
         print("Launched Auto Ring Finder")
@@ -523,8 +995,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         saveBtn = Tk.Button(master=root, text='Save Image', command=saveImage)
         saveBtn.pack(side=Tk.RIGHT)
         
-        def plotRingSizePercent(bin_list, bin_mids): 
-            ax = fig.add_subplot(111)
+        def plotRingSizePercent(bin_list, bin_mids):  #Need to modify this to actually work
             
             size_perc = [[],[],[],[],[],[]]
         
@@ -544,16 +1015,16 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             
             #Plots the mid point of the bin vs. percentages of each ring size
             for i in range(len(size_perc)): 
-                ax.plot(bin_mids, size_perc[i], label=str(i+4) + ' MR')
+                plt.plot(bin_mids, size_perc[i], label=str(i+4) + ' MR')
         
             #Adds a legend to the plot
-            legend = ax.legend(loc=0, ncol=2)
-            ax.add_artist(legend)
+            legend = plt.legend(loc=0, ncol=2)
+            #plt.add_artist(legend)
         
-            #plt.ylabel('Percentage of Rings')
-            #plt.xlabel('Distance from Nearest Hole (px)')
-    
-            canvas.draw()
+            plt.ylabel('Percentage of Rings')
+            plt.xlabel('Distance from Nearest Hole (px)')
+            plt.show()
+            #canvas.draw()
             
         def percPlot():
             #See if the bin size is valid, and if so, plot the ring size percentages
@@ -568,7 +1039,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         def xyzFile():
             hole_dist, ring_size, center_coord = getNumNeighbors(centers, thresh, average_closest)
             createXyzFile(center_coord, ring_size)
-        
+            
         def doneEditing():
             #Destroy editing buttons
             addRingBtn.destroy()
@@ -576,8 +1047,30 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             moveRingBtn.destroy()
             doneBtn.destroy()
             
+            plot_image, o_locations, si_locations, triplet_types, counts = getSiOPlot()      
+            
             fig.clf()
-            canvas.draw()        
+            ax = fig.add_subplot(111)
+            ax.imshow(plot_image)
+            canvas.draw()     
+            
+            def outputO():
+                # write O positions to an out file
+                out = open(filename[:-4] + 'Oloc.txt', "w")
+                out.write(str(o_locations))
+                out.write("\n")
+            
+            def outputSi():
+                # write Si positions to an out file
+                out = open(filename[:-4] + 'Siloc.txt', "w")
+                out.write(str(si_locations))
+                out.write("\n")
+                
+            def tripletBar():
+                y_pos = numpy.arange(len(triplet_types))
+                plt.bar(y_pos, counts, align='center', alpha=0.5)
+                plt.xticks(y_pos, triplet_types)
+                plt.show()
             
             #Label for bin size text entry
             binSizeLabel = Tk.Label(master=root, text='Bin Size')
@@ -587,19 +1080,30 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             binSizeEntry = Tk.Entry(master=root, textvariable=binSizeTxt)
             binSizeEntry.pack(side=Tk.LEFT)
             
-            #Button to generate ring size percentage plot
+            #Button to generate ring size percentage plot (BROKEN ... (for now))
             percPlotBtn = Tk.Button(master=root, text='Ring Size Percentage Plot', command=percPlot)
             percPlotBtn.pack(side=Tk.LEFT)
+            
+            #Button to generate triplet type bar plot
+            tripBarBtn = Tk.Button(master=root, text='Triplet Type Bar Plot', command=tripletBar)
+            tripBarBtn.pack(side=Tk.LEFT)
             
             #Button to export to an xyz file
             xyzFileBtn = Tk.Button(master=root, text='Create xyz File', command=xyzFile)
             xyzFileBtn.pack(side=Tk.LEFT)
             
+            #Button to output O locations
+            outputOBtn = Tk.Button(master=root, text='Output O Locs', command=outputO)
+            outputOBtn.pack(side=Tk.LEFT)
+            
+            #Button to output Si locations
+            outputSiBtn = Tk.Button(master=root, text='Output Si Locs', command=outputSi)
+            outputSiBtn.pack(side=Tk.LEFT)
+            
         #Button to finish editing and move to exporting / plotting graphs    
         doneBtn = Tk.Button(master=root, text='Done Editing', command=doneEditing)
         doneBtn.pack(side=Tk.LEFT)
-        
-    
+
     createWindow(image)
     
 getFilename()
