@@ -162,7 +162,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         
         return [int(nm_coord[0]*scale), int(nm_coord[1]*scale)]
     
+    def pixelDistToNm(dist, nm_dim, im_width, im_height):
+        scale = (nm_dim[0]/im_width)
         
+        return dist*scale
     #Imports and scales the image by a given scaling factor
     def importAndScale(filename):
         original = io.imread(filename)
@@ -407,21 +410,30 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         
     #Splits the ring size and hole distance data into bins based on 
     # a given bin size and plots histograms of all of the bins 
-    def splitRingsIntoBins(bin_size, hole_dist, ring_size):
+    def splitRingsIntoBins(bin_size, hole_dist, ring_size): #Need to modify this to use nms for binning
         bin_list = []
         bin_mids = []
         
-        max_dist = int(numpy.amax(hole_dist))
+        nm_dists = []
         
-        for k in range(0, max_dist, bin_size):
-            bin_mids.append(k + (bin_size/2))
+        for dist in hole_dist:
+            nm_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
+        
+        max_dist = int(numpy.amax(nm_dists))
+        
+        bin_start = 0
+        
+        while bin_start < max_dist:
+            bin_mids.append(bin_start + (bin_size/2))
             
             cur_bin = []
-            for i in range(len(hole_dist)):
-                if k <= hole_dist[i] < k + bin_size:
+            for i in range(len(nm_dists)):
+                if bin_start <= nm_dists[i] < bin_start + bin_size:
                     cur_bin.append(ring_size[i])
             
             bin_list.append(cur_bin)
+            
+            bin_start += bin_size
         
         return bin_list, bin_mids
     
@@ -642,7 +654,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #  plane with x making up the difference)
             x = newx / 2
             y = newy / 2
-    
+            
             if math.pow(dist, 2) - math.pow(x, 2) - math.pow(y, 2) > 0:
                 z = math.sqrt(math.pow(dist, 2) - math.pow(x, 2) - math.pow(y, 2))
             else:
@@ -718,7 +730,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     types.append(1)
         return types
 
-    def getSiOPlot():
+    def getSiOPlot(center_coord, ring_size):
         x_max = dimensions[0]
         y_max = dimensions[1]
         edge_buffer = 0.1 #Should look into this a bit more
@@ -782,7 +794,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 remove.append(i + 1)
     
         remove.sort(reverse=True)
-    
+        
         for i in range(len(remove)):
             del (o_locations[remove[i]])
         
@@ -793,11 +805,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         for i in range(len(o_locations)):
             xOpos.append(o_locations[i][0])
             yOpos.append(o_locations[i][1])
-    
-        # write O positions to an out file
-        out = open("OfC Positions 120106_008 Python Output.txt", "w")
-        out.write(str(o_locations))
-        out.write("nn")
     
         positions = o_locations
     
@@ -867,7 +874,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             
         plotCirclesOnImage(plot_image, oCoords, 5, [250,0,0])
         
-        #plotCirclesOnImage(plot_image, center_coord, 5, [0,0,250])
+        plotCirclesOnImage(plot_image, center_coord, 5, [0,0,250])
         
         """
         plt.triplot(points[:, 0], points[:, 1], tri.simplices.copy())
@@ -885,19 +892,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         """
         
         return plot_image, o_locations, si_locations, triplet_types, counts
-        
-        """
-        for i in range(0,15):
-            center = list_of_centers[i]
-            atoms_x = []
-            atoms_y = []
-            for atom in center.get_atoms():
-                atoms_x.append(atom[0])
-                atoms_y.append(atom[1])
-            
-            #print(atoms_x)
-            plt.fill(atoms_x, atoms_y, color='#091ebc')
-        """
 
     
     def createWindow(image):
@@ -995,47 +989,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         saveBtn = Tk.Button(master=root, text='Save Image', command=saveImage)
         saveBtn.pack(side=Tk.RIGHT)
         
-        def plotRingSizePercent(bin_list, bin_mids):  #Need to modify this to actually work
-            
-            size_perc = [[],[],[],[],[],[]]
-        
-            for cur_bin in bin_list:
-                #Initializes the counts of the ring sizes for the bin at zero
-                bin_perc = [0,0,0,0,0,0]
-            
-                #Increments the bin perc for each ring of that size
-                for size in cur_bin:
-                    bin_perc[size-4] += 1
-            
-                #Divides all ring size totals by the total number of rings in bin
-                bin_perc = [x / len(cur_bin) for x in bin_perc]
-            
-                for k in range(6):
-                    size_perc[k].append(bin_perc[k])
-            
-            #Plots the mid point of the bin vs. percentages of each ring size
-            for i in range(len(size_perc)): 
-                plt.plot(bin_mids, size_perc[i], label=str(i+4) + ' MR')
-        
-            #Adds a legend to the plot
-            legend = plt.legend(loc=0, ncol=2)
-            #plt.add_artist(legend)
-        
-            plt.ylabel('Percentage of Rings')
-            plt.xlabel('Distance from Nearest Hole (px)')
-            plt.show()
-            #canvas.draw()
-            
-        def percPlot():
-            #See if the bin size is valid, and if so, plot the ring size percentages
-            try:
-                binSize = int(binSizeTxt.get())
-                bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist, ring_size)
-                fig.clf()
-                plotRingSizePercent(bin_list, bin_mids)
-            except ValueError:
-                messagebox.showerror("Error", "Invalid Bin Size (must be an integer)")
-                
         def xyzFile():
             hole_dist, ring_size, center_coord = getNumNeighbors(centers, thresh, average_closest)
             createXyzFile(center_coord, ring_size)
@@ -1047,7 +1000,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             moveRingBtn.destroy()
             doneBtn.destroy()
             
-            plot_image, o_locations, si_locations, triplet_types, counts = getSiOPlot()      
+            hole_dist, ring_size, center_coord = getNumNeighbors(centers, thresh, average_closest)
+            
+            plot_image, o_locations, si_locations, triplet_types, counts = getSiOPlot(center_coord, ring_size)      
             
             fig.clf()
             ax = fig.add_subplot(111)
@@ -1068,12 +1023,56 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 
             def tripletBar():
                 y_pos = numpy.arange(len(triplet_types))
+                plt.title('Triplet Type Histogram')
                 plt.bar(y_pos, counts, align='center', alpha=0.5)
-                plt.xticks(y_pos, triplet_types)
+                plt.xticks(y_pos, triplet_types,rotation=90)
                 plt.show()
+                
+            def plotRingSizePercent(bin_list, bin_mids):  #Need to modify this to actually work again
+                
+                size_perc = [[],[],[],[],[],[]]
             
+                for cur_bin in bin_list:
+                    #Initializes the counts of the ring sizes for the bin at zero
+                    bin_perc = [0,0,0,0,0,0]
+                
+                    #Increments the bin perc for each ring of that size
+                    for size in cur_bin:
+                        bin_perc[size-4] += 1
+                
+                    #Divides all ring size totals by the total number of rings in bin
+                    bin_perc = [x / len(cur_bin) for x in bin_perc]
+                
+                    for k in range(6):
+                        size_perc[k].append(bin_perc[k])
+                                        
+                #Plots the mid point of the bin vs. percentages of each ring size
+                for i in range(len(size_perc)): 
+                    plt.plot(bin_mids, size_perc[i], label=str(i+4) + ' MR')
+            
+                #Adds a legend to the plot
+                legend = plt.legend(loc=0, ncol=2)
+                #plt.add_artist(legend)
+            
+                plt.title('Ring Size Percentage')
+                plt.ylabel('Percentage of Rings')
+                plt.xlabel('Distance from Nearest Hole (nm)')
+                plt.show()
+                #canvas.draw()
+                
+            def percPlot():
+                #See if the bin size is valid, and if so, plot the ring size percentages
+                try:
+                    binSize = float(binSizeTxt.get())
+                    bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist, ring_size)
+                    #fig.clf()
+                    plotRingSizePercent(bin_list, bin_mids)
+                except ValueError:
+                    messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
+                    
+                
             #Label for bin size text entry
-            binSizeLabel = Tk.Label(master=root, text='Bin Size')
+            binSizeLabel = Tk.Label(master=root, text='Bin Size (nm)')
             binSizeLabel.pack(side=Tk.LEFT)
             
             #Bin size text entry field
