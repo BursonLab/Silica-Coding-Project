@@ -194,6 +194,12 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             rr, cc = draw.circle(coord[1], coord[0], radius, shape=(image_height, image_width))
             image[rr, cc] = color
             
+    #Same as above but coord reversed
+    def plotCirclesOnImageRev(image, coords, radius, color):
+        for coord in coords:
+            rr, cc = draw.circle(coord[0], coord[1], radius, shape=(image_height, image_width))
+            image[rr, cc] = color
+            
             
     #Finds the distances and indices of the nearest given number of the base coords
     # to each of the provided search coords
@@ -256,6 +262,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     if not import_xyz:
         #Black out the holes in the greyscale image so no centers will be placed there
         grey_inv = grey_inv * (1 - holes)
+        grey_inv_copy = grey_inv
+        
+        peak_coord = feature.peak_local_max(grey_inv, min_distance=24,threshold_rel=0.2)
         
         #Returns a list of the centers of the blobs
         def getBlobCenters(blobs):
@@ -297,6 +306,24 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #Find blobs that may be rings that have not been found on first pass
             blobs = numpy.concatenate((blobs,feature.blob_dog(grey_inv, min_sigma=0.08, max_sigma=20, sigma_ratio=2.8, threshold=0.8, overlap=0.3)))
             centers = getBlobCenters(blobs)
+
+            plotCirclesOnImageRev(grey_inv_copy, peak_coord, avg_closest*average_thresh, 0)
+
+            peak_coord = numpy.concatenate((peak_coord, feature.peak_local_max(grey_inv_copy, min_distance=24,threshold_rel=0.2)))
+
+        for k in range(len(peak_coord)):
+            temp = peak_coord[k][0]
+            peak_coord[k][0] = peak_coord[k][1]
+            peak_coord[k][1] = temp
+            
+        peak_dist, peak_ind = getNearestNeighbors(centers, peak_coord, 2)
+
+        add_peak_centers = True
+        if add_peak_centers:
+            peak_thresh = 1.4
+            for k in range(len(peak_dist)):
+                if peak_dist[k][0] > avg_closest*peak_thresh:
+                    centers.append(peak_coord[k])
 
     else:
         
@@ -361,6 +388,15 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #Scales the number of neighbors based on what it should be if all the 
             # ring neighbors were visible
             scaled_num_neighbors = int(num_neighbors * percent_visible)
+            
+            nearest_centers = []
+            for i in range(1, num_neighbors+1):
+                nearest_centers.append(centers[indices[k][i]][:])
+                
+            #Calculates the centroid of neighboring centers
+            x = [p[0] for p in nearest_centers]
+            y = [p[1] for p in nearest_centers]
+            centroid = (sum(x) / len(nearest_centers), sum(y) / len(nearest_centers))
         
             exclude_thresh = 1.9
             
@@ -373,16 +409,20 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             if 4 <= scaled_num_neighbors <= 9 and percent_visible < 1.2 and cur_hole_dist > exclude_thresh*average_closest:
                 hole_dist.append(cur_hole_dist)
                 ring_size.append(scaled_num_neighbors)
-                center_coord.append(centers[k])
-            
-        return hole_dist, ring_size, center_coord
+                center_coord.append([(centers[k][0]+centroid[0])/2,(centers[k][1]+centroid[1])/2])
+          
+        hole_nm_coords = []
+        for coord in hole_coords:
+            hole_nm_coords.append(pixelsToNm(coord, dimensions, image_width, image_height))
+        
+        return hole_dist, ring_size, center_coord, hole_nm_coords
     
     #Threshold for the maximum distance that two centers can be apart to be concidered neighbors
     #thresh = 1.35
     thresh = 1.48
     #thresh = 1.52
         
-    hole_dist, ring_size, center_coord = getNumNeighbors(centers, thresh, average_closest)
+    hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
     
     def plotRingCenters(image, ring_size, centers, average_closest):
         for i in range(len(ring_size)):
@@ -836,6 +876,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         si_locations = []
         for j in range(len(triples)):
             si_locations.append(si_finder(triples[j]))
+            
         
         #make a list of the Si atoms as objects
         si_objects = []
@@ -1035,10 +1076,18 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             moveRingBtn.destroy()
             doneBtn.destroy()
             
-            hole_dist, ring_size, center_coord = getNumNeighbors(centers, thresh, average_closest)
+            hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
             
             plot_image, o_locations, si_locations, triplet_types, counts, si_objects = getSiOPlot(center_coord, ring_size)      
                         
+            
+            si_coords = numpy.zeros((len(si_locations), 2))
+            
+            for k in range(len(si_locations)):
+                si_coords[k] = [si_locations[k][0], si_locations[k][1]]
+                
+            numpy.save('Silicon Coords', si_coords)
+            
             fig.clf()
             ax = fig.add_subplot(111)
             ax.imshow(plot_image)
@@ -1129,6 +1178,83 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 except ValueError:
                     messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
                 
+            def ddoPlot(si_locations, hole_coords):
+                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
+                
+                
+
+                cos_of_angles = []
+                angles_in_rad = []
+                final_angle_pairs = []
+                centers = []
+                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
+                for i in range(len(si_locations)):
+                    si_originvect_dist = 1
+                    si_originvect_ind = [1, 0]
+                    angle_pair = []
+                    centersforoneatom = []
+                    
+                    for j in (1, 2, 3):
+                        si_newvect_dist = si_dist[i][j]
+                        midpoint_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0] / 2, 
+                                        si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1] / 2]
+                        si_newvect_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0], 
+                                          si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]]
+                        dot_prod = (si_newvect_ind[0] * si_originvect_ind[0] +
+                                    si_newvect_ind[1] * si_originvect_ind[1])
+                        dist_prod = si_originvect_dist * si_newvect_dist
+                        if si_newvect_ind[1] < 0:
+                            dot_prod *= -1
+                        angle_pair.append(dot_prod / dist_prod)
+                        centersforoneatom.append(midpoint_ind)
+                    cos_of_angles.append(angle_pair)
+                    centers.append(centersforoneatom)
+                    
+                for pair in cos_of_angles:
+                    pairs_in_rad = numpy.arccos(pair)
+                    for ang in range(len(pair)):
+                        if pair[ang] < 0:
+                            pairs_in_rad[ang] *= -1
+                    angles_in_rad.append(pairs_in_rad)
+                for pair in angles_in_rad:
+                    newpair = []
+                    for angle in pair:
+                        if angle > (numpy.pi / 2):
+                            newpair.append((angle * 180 / numpy.pi))
+                        else:
+                            newpair.append(angle * 180 / numpy.pi)
+                    final_angle_pairs.append(newpair)
+                #print(final_angle_pairs)
+                
+                
+                angle_coords = []
+                angles = []
+                
+                for i in range(len(centers)):
+                    three_centers = centers[i]
+                    three_angles = final_angle_pairs[i]
+                    for k in range(len(three_centers)):
+                        angle_coords.append(three_centers[k])
+                        if three_angles[k] < 0:
+                            three_angles[k] = -180 - three_angles[k]
+                        angles.append(three_angles[k])
+                        
+                #print(angle_coords)
+                        
+                hole_distances, hole_inds = getNearestNeighbors(hole_coords, angle_coords, 1)
+                
+                angle_dists = []
+                for dist in hole_distances:
+                    angle_dists.append(dist[0])
+                    
+                plt.scatter(angle_dists, angles, s=3, marker='_')
+                plt.title('DDO Plot')
+                plt.xlabel('Distance from Hole (nm)')
+                plt.ylabel('Angle (degrees)')
+                plt.show()
+                
+            def plotDDO():
+                ddoPlot(si_locations,hole_coords)
             
             menubar = Tk.Menu(root)
             
@@ -1136,6 +1262,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             plotMenu.add_command(label="Ring Size Percentage", command=percPlot)
             plotMenu.add_command(label="Crystallinity", command=plotCrystal)
             plotMenu.add_command(label="Triplet Type Bar", command=tripletBar)
+            plotMenu.add_command(label="DDO Plot", command=plotDDO)
             menubar.add_cascade(label="Plot", menu=plotMenu)
             
             exportMenu = Tk.Menu(menubar, tearoff=0)
