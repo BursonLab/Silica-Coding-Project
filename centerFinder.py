@@ -1179,43 +1179,80 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
                 
             def ddoPlot(si_locations, hole_coords):
+                # finds the angle between each si atom and the three closest si atoms
+                # these angles are measured with the idea that a perfectly crystalline
+                # structure would have angles at 0, -60 and 60 degrees 
+
+                # makes lists for the indices of the center and three neighbors as well
+                # as the distances from the center
+                # (in the format [[center dist/ind, 1st neighbor dist/ind, 2nd, 3rd], [...], ...])
                 si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
                 
-                
-
+                # contains the cos of angles in form [[cos[θ c], cos(θ 1), ...]...]
                 cos_of_angles = []
+
+                # contains θ in radians same format as cos_of_angles
                 angles_in_rad = []
+
+                # contains the final angles, but the negatives are messed up (fixed by Thomas)
                 final_angle_pairs = []
                 centers = []
-                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
+
+                # this for loop runs through the number of every si atom
                 for i in range(len(si_locations)):
+
+                    # the origin vector that we will measure the angles from will be
+                    # a vector with length one pointing due east
                     si_originvect_dist = 1
                     si_originvect_ind = [1, 0]
+
+                    # angle pair will have three angles for each atom
                     angle_pair = []
+
+                    # centers for one atom has three midpoints of the three vectors to
+                    # the nearest neighbors 
                     centersforoneatom = []
                     
+                    # this loop runs through the 3 neighbors
                     for j in (1, 2, 3):
+
+                        # find the distance to the neighbor
                         si_newvect_dist = si_dist[i][j]
-                        midpoint_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0] / 2, 
-                                        si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1] / 2]
+
+                        # find the index of the midpoint of the vector
+                        midpoint_ind = [(si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0]) / 2, 
+                                        (si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]) / 2]
+
+                        # find the index of the vector as if the center was at (0,0)
                         si_newvect_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0], 
                                           si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]]
+                        
+                        # calulate the cos of the angle between the vectors using a basic equation
                         dot_prod = (si_newvect_ind[0] * si_originvect_ind[0] +
                                     si_newvect_ind[1] * si_originvect_ind[1])
                         dist_prod = si_originvect_dist * si_newvect_dist
+                        
+                        # make the cos value negative if the y value is less than 0
                         if si_newvect_ind[1] < 0:
                             dot_prod *= -1
+
+                        # add the angle to the angle pair and the midpoint to the center vector list
                         angle_pair.append(dot_prod / dist_prod)
                         centersforoneatom.append(midpoint_ind)
+
+                    # add each three cos values for each center and the midpoints to center list
                     cos_of_angles.append(angle_pair)
                     centers.append(centersforoneatom)
                     
+                # convert the cos of angles list to rad
                 for pair in cos_of_angles:
                     pairs_in_rad = numpy.arccos(pair)
                     for ang in range(len(pair)):
                         if pair[ang] < 0:
+                            # make sure the angle is negative if the cos is negative
                             pairs_in_rad[ang] *= -1
                     angles_in_rad.append(pairs_in_rad)
+                # convert the angles from rad to degrees so it's easier to read when plotted
                 for pair in angles_in_rad:
                     newpair = []
                     for angle in pair:
@@ -1224,9 +1261,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         else:
                             newpair.append(angle * 180 / numpy.pi)
                     final_angle_pairs.append(newpair)
-                #print(final_angle_pairs)
+                # print(final_angle_pairs)
                 
-                
+                # we realized that the negative angles were measured from the origin vector,
+                # not the negative origin vector so we were getting angles close to 120 instead of 60
                 angle_coords = []
                 angles = []
                 
@@ -1240,7 +1278,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         angles.append(three_angles[k])
                         
                 #print(angle_coords)
-                        
+
+                # create a DDO plot using angles and angle_coords        
                 hole_distances, hole_inds = getNearestNeighbors(hole_coords, angle_coords, 1)
                 
                 angle_dists = []
