@@ -288,6 +288,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     
         #blobs = feature.blob_dog(grey_inv, min_sigma=0.03, max_sigma=30, sigma_ratio=2.8, threshold=0.8, overlap=0.5)
         blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=15, sigma_ratio=2.8, threshold=0.57, overlap=0.3)
+        blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=15, sigma_ratio=2.8, threshold=0.5, overlap=0.3)
         centers = getBlobCenters(blobs)
         
         #Find the average distance to closest neighbor
@@ -318,7 +319,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             
         peak_dist, peak_ind = getNearestNeighbors(centers, peak_coord, 2)
 
-        add_peak_centers = True
+        #Somewhat experimental -> tends to add extra centers but for some images too many 
+        add_peak_centers = False
         if add_peak_centers:
             peak_thresh = 1.4
             for k in range(len(peak_dist)):
@@ -564,7 +566,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         area = abs(area) / 2.0
         return float(area)
     
-    def si_finder(opositions):
+    def si_finder(o_pos):
         """finds the position of a Si given a triplet of oxygen"""
     
         # characteristic distance
@@ -572,12 +574,12 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     
         # sets up the translation to happen around a basepoint(the first point in
         #  the positions)
-        trans = [[0, 0, 0], [opositions[1][0] - opositions[0][0],
-                             opositions[1][1] - opositions[0][1],
-                             opositions[1][2] - opositions[0][2]],
-                 [opositions[2][0] - opositions[0][0],
-                  opositions[2][1] - opositions[0][1],
-                  opositions[2][2] - opositions[0][2]]]
+        trans = [[0, 0, 0], [o_pos[1][0] - o_pos[0][0],
+                             o_pos[1][1] - o_pos[0][1],
+                             o_pos[1][2] - o_pos[0][2]],
+                 [o_pos[2][0] - o_pos[0][0],
+                  o_pos[2][1] - o_pos[0][1],
+                  o_pos[2][2] - o_pos[0][2]]]
     
         # finds vector perpendicular to the plane of the three points
         v = numpy.matrix([numpy.linalg.det([[trans[1][1], trans[2][1]],
@@ -628,14 +630,14 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         si_pos = numpy.matrix.dot(si_pos, ixmatr)
     
         # translate back so there is no point at the origin
-        si_pos = [si_pos.item(0) + opositions[0][0],
-                  si_pos.item(1) + opositions[0][1],
-                  si_pos.item(2) + opositions[0][2]]
+        si_pos = [si_pos.item(0) + o_pos[0][0],
+                  si_pos.item(1) + o_pos[0][1],
+                  si_pos.item(2) + o_pos[0][2]]
     
         return si_pos
     
     
-    def o_locator(opositions):
+    def o_locator(o_pos):
         """locates all possible triplets"""
     
         # assumed oxygens are ordered by increasing x values
@@ -643,19 +645,19 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         #  between them
         found = [[""]]
         # for each oxygen
-        for i in range(len(opositions)):
-            found[i] = [opositions[i]]
+        for i in range(len(o_pos)):
+            found[i] = [o_pos[i]]
             # for each oxygen with an x position higher than the current
-            for j in range(1, len(opositions) - i):
+            for j in range(1, len(o_pos) - i):
                 # if the x position is less than the possible distance between two
                 #  oxygenatoms(variableinclusionradius)
-                if abs(opositions[i][0] - opositions[i + j][0]) <= \
+                if abs(o_pos[i][0] - o_pos[i + j][0]) <= \
                         3.45 * math.pow(10, - 1):
                     # if the distance between the two oxygens is less than the
                     #  characteristic distance(variable inclusion radius)
-                    if distance(opositions[i], opositions[i + j]) <= \
+                    if distance(o_pos[i], o_pos[i + j]) <= \
                             3.45 * math.pow(10, - 1):
-                        found[i].append(opositions[i + j])
+                        found[i].append(o_pos[i + j])
             found.append([""])
         
         # removes last appended empty list
@@ -698,7 +700,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     
     def find_o(positions, dist):
     
-        opositions = []
+        o_pos = []
     
         for i in range(len(positions)):
             # center at origin
@@ -731,10 +733,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     r * math.sin(alph + phi)]
     
             # append to the list
-            opositions.append([opos[0] + positions[i][0][0], opos[1] +
+            o_pos.append([opos[0] + positions[i][0][0], opos[1] +
                                positions[i][0][1], opos[2] + positions[i][0][2]])
     
-        return opositions
+        return o_pos
     
     def centers_to_objects(ring_size, center_list):
         """Converts list of centers to center objects"""
@@ -941,8 +943,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             
             distances, o_inds = getNearestNeighbors(o_locations,center_position, center.get_type())
             
-            print(o_inds)
-            
             for o in o_inds[0]:
                 center.set_atom(o_locations[o])
                 
@@ -951,21 +951,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         plotCirclesOnImage(plot_image, oCoords, 5, [250,0,0])
         
         plotCirclesOnImage(plot_image, center_coord, 5, [0,0,250])
-        
-        """
-        plt.triplot(points[:, 0], points[:, 1], tri.simplices.copy())
-        plt.plot(points[:, 0], points[:, 1], 'o', color='#2E9AFE')
-        #plt.scatter(points[:, 0], points[:, 1], label='Center Positions', color='#2E9AFE')
-        plt.scatter(xOpos, yOpos, label='Center Positions', color='#2E9AFE')
-        plt.scatter(xOpos, yOpos, label='Oxygen Positions', color='r')
-        plt.scatter(xSipos, ySipos, label='Silicon Positions', color='g')
-        
-        plt.xlabel('x (nm)')
-        plt.ylabel('y (nm)')
-        plt.title('Center Positions')
-        plt.legend()
-        plt.show()
-        """
+
         
         return plot_image, o_locations, si_locations, triplet_types, counts, si_objects
 
@@ -987,6 +973,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         cid = []
         
         binSizeTxt = Tk.StringVar()
+        
+        """ METHODS FOR MANUALLY EDITING CENTERS"""
                         
         def addcenter(event):
             #Add a center where the user clicked
@@ -1030,7 +1018,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #Replot image
             image = io.imread(filename)
             
-            hole_dist, ring_size, center_coord = getNumNeighbors(centers, thresh, average_closest)
+            hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
             plotRingCenters(image, ring_size, center_coord, average_closest)
             
             ax.imshow(image)
@@ -1049,6 +1037,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         def ringMove():
             cid.append(canvas.mpl_connect('button_press_event', movecenter))
         
+        """EDITING BUTTON GUI CODE"""
+        
         addRingBtn = Tk.Button(master=root, text='Add Ring', command=ringAdd)
         addRingBtn.pack(side=Tk.LEFT)
         
@@ -1066,7 +1056,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         saveBtn.pack(side=Tk.RIGHT)
         
         def xyzFile():
-            hole_dist, ring_size, center_coord = getNumNeighbors(centers, thresh, average_closest)
+            hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
             createXyzFile(center_coord, ring_size)
             
         def doneEditing():
@@ -1078,20 +1068,17 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             
             hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
             
+            #Plots the silicon and oxygen positions onto image and returns all 
+            # object needed to construct other plots
             plot_image, o_locations, si_locations, triplet_types, counts, si_objects = getSiOPlot(center_coord, ring_size)      
                         
-            
-            si_coords = numpy.zeros((len(si_locations), 2))
-            
-            for k in range(len(si_locations)):
-                si_coords[k] = [si_locations[k][0], si_locations[k][1]]
-                
-            numpy.save('Silicon Coords', si_coords)
             
             fig.clf()
             ax = fig.add_subplot(111)
             ax.imshow(plot_image)
             canvas.draw()     
+            
+            """PLOTTING AND EXPORTING METHODS"""
             
             def outputO():
                 # write O positions to an out file
@@ -1167,17 +1154,16 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 plt.xlabel('Distance from Hole (nm)')
                 plt.ylabel('Crystallinity')
                 plt.show()
-            
-            
                 
             def plotCrystal():   
                 try:
                     binSize = float(binSizeTxt.get())
-                    bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist, ring_size)
+                    bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist, si_objects)
                     crystalPlot(bin_list, bin_mids)
                 except ValueError:
                     messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
                 
+<<<<<<< HEAD
             def ddoPlot(si_locations, hole_coords):
                 # finds the angle between each si atom and the three closest si atoms
                 # these angles are measured with the idea that a perfectly crystalline
@@ -1189,6 +1175,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
                 
                 # contains the cos of angles in form [[cos[θ c], cos(θ 1), ...]...]
+=======
+            def ddoPlot(si_locations, hole_coords, use_hole_dist):
+>>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                 cos_of_angles = []
 
                 # contains θ in radians same format as cos_of_angles
@@ -1197,6 +1186,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 # contains the final angles, but the negatives are messed up (fixed by Thomas)
                 final_angle_pairs = []
                 centers = []
+<<<<<<< HEAD
 
                 # this for loop runs through the number of every si atom
                 for i in range(len(si_locations)):
@@ -1212,9 +1202,19 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     # centers for one atom has three midpoints of the three vectors to
                     # the nearest neighbors 
                     centersforoneatom = []
+=======
+                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
+                
+                for i in range(len(si_locations)):
+                    origin_vect_dist = 1
+                    origin_vect_ind = [1, 0]
+                    angle_pair = []
+                    atom_centers = []
+>>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                     
                     # this loop runs through the 3 neighbors
                     for j in (1, 2, 3):
+<<<<<<< HEAD
 
                         # find the distance to the neighbor
                         si_newvect_dist = si_dist[i][j]
@@ -1234,15 +1234,30 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         
                         # make the cos value negative if the y value is less than 0
                         if si_newvect_ind[1] < 0:
+=======
+                        new_vect_dist = si_dist[i][j]
+                        midpoint_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0] / 2, 
+                                        si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1] / 2]
+                        new_vect_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0], 
+                                          si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]]
+                        dot_prod = (new_vect_ind[0] * origin_vect_ind[0] +
+                                    new_vect_ind[1] * origin_vect_ind[1])
+                        dist_prod = origin_vect_dist * new_vect_dist
+                        if new_vect_ind[1] < 0:
+>>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                             dot_prod *= -1
 
                         # add the angle to the angle pair and the midpoint to the center vector list
                         angle_pair.append(dot_prod / dist_prod)
+<<<<<<< HEAD
                         centersforoneatom.append(midpoint_ind)
 
                     # add each three cos values for each center and the midpoints to center list
+=======
+                        atom_centers.append(midpoint_ind)
+>>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                     cos_of_angles.append(angle_pair)
-                    centers.append(centersforoneatom)
+                    centers.append(atom_centers)
                     
                 # convert the cos of angles list to rad
                 for pair in cos_of_angles:
@@ -1261,39 +1276,60 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         else:
                             newpair.append(angle * 180 / numpy.pi)
                     final_angle_pairs.append(newpair)
+<<<<<<< HEAD
                 # print(final_angle_pairs)
+=======
+>>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                 
                 # we realized that the negative angles were measured from the origin vector,
                 # not the negative origin vector so we were getting angles close to 120 instead of 60
                 angle_coords = []
                 angles = []
+                x_coords = []
                 
                 for i in range(len(centers)):
                     three_centers = centers[i]
                     three_angles = final_angle_pairs[i]
                     for k in range(len(three_centers)):
                         angle_coords.append(three_centers[k])
+                        x_coords.append(three_centers[k][0])
                         if three_angles[k] < 0:
                             three_angles[k] = -180 - three_angles[k]
                         angles.append(three_angles[k])
                         
+<<<<<<< HEAD
                 #print(angle_coords)
 
                 # create a DDO plot using angles and angle_coords        
+=======
+>>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                 hole_distances, hole_inds = getNearestNeighbors(hole_coords, angle_coords, 1)
                 
                 angle_dists = []
                 for dist in hole_distances:
                     angle_dists.append(dist[0])
                     
-                plt.scatter(angle_dists, angles, s=3, marker='_')
+                if use_hole_dist:
+                    plt.scatter(angle_dists, angles, s=2, marker='_')
+                else:
+                    plt.scatter(x_coords, angles, s=2, marker='_')
+                
                 plt.title('DDO Plot')
-                plt.xlabel('Distance from Hole (nm)')
+                if use_hole_dist:
+                    plt.xlabel('Distance from Hole (nm)')
+                else:
+                    plt.xlabel('x coordinate (nm)')
+                    
                 plt.ylabel('Angle (degrees)')
                 plt.show()
                 
-            def plotDDO():
-                ddoPlot(si_locations,hole_coords)
+            def plotDDOinX():
+                ddoPlot(si_locations,hole_coords, False)
+                
+            def plotDDOHoles():
+                ddoPlot(si_locations,hole_coords, True)
+                
+            """PLOTTING AND EXPORTING DROPDOWN MENU CODE"""
             
             menubar = Tk.Menu(root)
             
@@ -1301,9 +1337,11 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             plotMenu.add_command(label="Ring Size Percentage", command=percPlot)
             plotMenu.add_command(label="Crystallinity", command=plotCrystal)
             plotMenu.add_command(label="Triplet Type Bar", command=tripletBar)
-            plotMenu.add_command(label="DDO Plot", command=plotDDO)
+            plotMenu.add_command(label="DDO Plot in X", command=plotDDOinX)
+            plotMenu.add_command(label="DDO Plot Hole Distance", command=plotDDOHoles)
             menubar.add_cascade(label="Plot", menu=plotMenu)
             
+            #Creates the export dropdown menu
             exportMenu = Tk.Menu(menubar, tearoff=0)
             exportMenu.add_command(label="XYZ File", command=xyzFile)
             exportMenu.add_command(label="Oxygen Locations", command=outputO)
@@ -1319,31 +1357,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #Bin size text entry field
             binSizeEntry = Tk.Entry(master=root, textvariable=binSizeTxt)
             binSizeEntry.pack(side=Tk.LEFT)
-            """
-            #Button to generate ring size percentage plot
-            percPlotBtn = Tk.Button(master=root, text='Ring Size Percentage Plot', command=percPlot)
-            percPlotBtn.pack(side=Tk.LEFT)
-            
-            #Button to generate crystallinity plot
-            crystalPlotBtn = Tk.Button(master=root, text='Crystallinity Plot', command=plotCrystal)
-            crystalPlotBtn.pack(side=Tk.LEFT)
-            
-            #Button to generate triplet type bar plot
-            tripBarBtn = Tk.Button(master=root, text='Triplet Type Bar Plot', command=tripletBar)
-            tripBarBtn.pack(side=Tk.LEFT)
-            
-            #Button to export to an xyz file
-            xyzFileBtn = Tk.Button(master=root, text='Create xyz File', command=xyzFile)
-            xyzFileBtn.pack(side=Tk.LEFT)
-            
-            #Button to output O locations
-            outputOBtn = Tk.Button(master=root, text='Output O Locs', command=outputO)
-            outputOBtn.pack(side=Tk.LEFT)
-            
-            #Button to output Si locations
-            outputSiBtn = Tk.Button(master=root, text='Output Si Locs', command=outputSi)
-            outputSiBtn.pack(side=Tk.LEFT)
-            """
             
         #Button to finish editing and move to exporting / plotting graphs    
         doneBtn = Tk.Button(master=root, text='Done Editing', command=doneEditing)
