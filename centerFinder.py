@@ -1163,8 +1163,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 except ValueError:
                     messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
                 
-<<<<<<< HEAD
-            def ddoPlot(si_locations, hole_coords):
+                
+            def ddoPlot(si_locations, hole_coords, use_hole_dist):
                 # finds the angle between each si atom and the three closest si atoms
                 # these angles are measured with the idea that a perfectly crystalline
                 # structure would have angles at 0, -60 and 60 degrees 
@@ -1175,9 +1175,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
                 
                 # contains the cos of angles in form [[cos[θ c], cos(θ 1), ...]...]
-=======
-            def ddoPlot(si_locations, hole_coords, use_hole_dist):
->>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                 cos_of_angles = []
 
                 # contains θ in radians same format as cos_of_angles
@@ -1186,7 +1183,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 # contains the final angles, but the negatives are messed up (fixed by Thomas)
                 final_angle_pairs = []
                 centers = []
-<<<<<<< HEAD
 
                 # this for loop runs through the number of every si atom
                 for i in range(len(si_locations)):
@@ -1202,19 +1198,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     # centers for one atom has three midpoints of the three vectors to
                     # the nearest neighbors 
                     centersforoneatom = []
-=======
-                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
-                
-                for i in range(len(si_locations)):
-                    origin_vect_dist = 1
-                    origin_vect_ind = [1, 0]
-                    angle_pair = []
-                    atom_centers = []
->>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                     
                     # this loop runs through the 3 neighbors
                     for j in (1, 2, 3):
-<<<<<<< HEAD
 
                         # find the distance to the neighbor
                         si_newvect_dist = si_dist[i][j]
@@ -1234,30 +1220,15 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         
                         # make the cos value negative if the y value is less than 0
                         if si_newvect_ind[1] < 0:
-=======
-                        new_vect_dist = si_dist[i][j]
-                        midpoint_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0] / 2, 
-                                        si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1] / 2]
-                        new_vect_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0], 
-                                          si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]]
-                        dot_prod = (new_vect_ind[0] * origin_vect_ind[0] +
-                                    new_vect_ind[1] * origin_vect_ind[1])
-                        dist_prod = origin_vect_dist * new_vect_dist
-                        if new_vect_ind[1] < 0:
->>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                             dot_prod *= -1
 
                         # add the angle to the angle pair and the midpoint to the center vector list
                         angle_pair.append(dot_prod / dist_prod)
-<<<<<<< HEAD
                         centersforoneatom.append(midpoint_ind)
 
                     # add each three cos values for each center and the midpoints to center list
-=======
-                        atom_centers.append(midpoint_ind)
->>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
                     cos_of_angles.append(angle_pair)
-                    centers.append(atom_centers)
+                    centers.append(centersforoneatom)
                     
                 # convert the cos of angles list to rad
                 for pair in cos_of_angles:
@@ -1276,11 +1247,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         else:
                             newpair.append(angle * 180 / numpy.pi)
                     final_angle_pairs.append(newpair)
-<<<<<<< HEAD
-                # print(final_angle_pairs)
-=======
->>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
-                
+       
                 # we realized that the negative angles were measured from the origin vector,
                 # not the negative origin vector so we were getting angles close to 120 instead of 60
                 angle_coords = []
@@ -1293,21 +1260,18 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     for k in range(len(three_centers)):
                         angle_coords.append(three_centers[k])
                         x_coords.append(three_centers[k][0])
-                        if three_angles[k] < 0:
-                            three_angles[k] = -180 - three_angles[k]
+                        #if three_angles[k] < 0:
+                        #    three_angles[k] = -180 - three_angles[k]
                         angles.append(three_angles[k])
-                        
-<<<<<<< HEAD
-                #print(angle_coords)
 
                 # create a DDO plot using angles and angle_coords        
-=======
->>>>>>> ab31bd3f8f867cc6028557e1b3f1fb9a84f1fecd
-                hole_distances, hole_inds = getNearestNeighbors(hole_coords, angle_coords, 1)
+
+                if len(hole_coords) > 0:
+                    hole_distances, hole_inds = getNearestNeighbors(hole_coords, angle_coords, 1)
                 
-                angle_dists = []
-                for dist in hole_distances:
-                    angle_dists.append(dist[0])
+                    angle_dists = []
+                    for dist in hole_distances:
+                        angle_dists.append(dist[0])
                     
                 if use_hole_dist:
                     plt.scatter(angle_dists, angles, s=2, marker='_')
