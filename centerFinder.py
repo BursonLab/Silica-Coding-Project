@@ -1,3 +1,11 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Apr 19 14:48:58 2018
+
+@author: thomasmarsh
+"""
+
 
 import math
 import numpy
@@ -147,7 +155,8 @@ def getFilename():
         #Fixes issue where scrolling accidentally would crash Tkinter
         except UnicodeDecodeError:
             pass
-        
+
+"""AUTOMATIC CENTER FINDING CODE"""
 
 def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):   
         
@@ -287,7 +296,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         # overlap -> fraction of the blobs that are allowed to overlap with each other
     
         #blobs = feature.blob_dog(grey_inv, min_sigma=0.03, max_sigma=30, sigma_ratio=2.8, threshold=0.8, overlap=0.5)
-        blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=15, sigma_ratio=2.8, threshold=0.57, overlap=0.3)
         blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=15, sigma_ratio=2.8, threshold=0.5, overlap=0.3)
         centers = getBlobCenters(blobs)
         
@@ -1163,82 +1171,41 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 except ValueError:
                     messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
                 
-                
             def ddoPlot(si_locations, hole_coords, use_hole_dist):
-                # finds the angle between each si atom and the three closest si atoms
-                # these angles are measured with the idea that a perfectly crystalline
-                # structure would have angles at 0, -60 and 60 degrees 
-
-                # makes lists for the indices of the center and three neighbors as well
-                # as the distances from the center
-                # (in the format [[center dist/ind, 1st neighbor dist/ind, 2nd, 3rd], [...], ...])
-                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
-                
-                # contains the cos of angles in form [[cos[θ c], cos(θ 1), ...]...]
                 cos_of_angles = []
-
-                # contains θ in radians same format as cos_of_angles
                 angles_in_rad = []
-
-                # contains the final angles, but the negatives are messed up (fixed by Thomas)
                 final_angle_pairs = []
                 centers = []
-
-                # this for loop runs through the number of every si atom
+                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
+                
                 for i in range(len(si_locations)):
-
-                    # the origin vector that we will measure the angles from will be
-                    # a vector with length one pointing due east
-                    si_originvect_dist = 1
-                    si_originvect_ind = [1, 0]
-
-                    # angle pair will have three angles for each atom
+                    origin_vect_dist = 1
+                    origin_vect_ind = [1, 0]
                     angle_pair = []
-
-                    # centers for one atom has three midpoints of the three vectors to
-                    # the nearest neighbors 
-                    centersforoneatom = []
+                    atom_centers = []
                     
-                    # this loop runs through the 3 neighbors
                     for j in (1, 2, 3):
-
-                        # find the distance to the neighbor
-                        si_newvect_dist = si_dist[i][j]
-
-                        # find the index of the midpoint of the vector
-                        midpoint_ind = [(si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0]) / 2, 
-                                        (si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]) / 2]
-
-                        # find the index of the vector as if the center was at (0,0)
-                        si_newvect_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0], 
+                        new_vect_dist = si_dist[i][j]
+                        midpoint_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0] / 2, 
+                                        si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1] / 2]
+                        new_vect_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0], 
                                           si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]]
-                        
-                        # calulate the cos of the angle between the vectors using a basic equation
-                        dot_prod = (si_newvect_ind[0] * si_originvect_ind[0] +
-                                    si_newvect_ind[1] * si_originvect_ind[1])
-                        dist_prod = si_originvect_dist * si_newvect_dist
-                        
-                        # make the cos value negative if the y value is less than 0
-                        if si_newvect_ind[1] < 0:
+                        dot_prod = (new_vect_ind[0] * origin_vect_ind[0] +
+                                    new_vect_ind[1] * origin_vect_ind[1])
+                        dist_prod = origin_vect_dist * new_vect_dist
+                        if new_vect_ind[1] < 0:
                             dot_prod *= -1
-
-                        # add the angle to the angle pair and the midpoint to the center vector list
                         angle_pair.append(dot_prod / dist_prod)
-                        centersforoneatom.append(midpoint_ind)
-
-                    # add each three cos values for each center and the midpoints to center list
+                        atom_centers.append(midpoint_ind)
                     cos_of_angles.append(angle_pair)
-                    centers.append(centersforoneatom)
+                    centers.append(atom_centers)
                     
-                # convert the cos of angles list to rad
                 for pair in cos_of_angles:
                     pairs_in_rad = numpy.arccos(pair)
                     for ang in range(len(pair)):
                         if pair[ang] < 0:
-                            # make sure the angle is negative if the cos is negative
                             pairs_in_rad[ang] *= -1
                     angles_in_rad.append(pairs_in_rad)
-                # convert the angles from rad to degrees so it's easier to read when plotted
                 for pair in angles_in_rad:
                     newpair = []
                     for angle in pair:
@@ -1247,9 +1214,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         else:
                             newpair.append(angle * 180 / numpy.pi)
                     final_angle_pairs.append(newpair)
-       
-                # we realized that the negative angles were measured from the origin vector,
-                # not the negative origin vector so we were getting angles close to 120 instead of 60
+                
                 angle_coords = []
                 angles = []
                 x_coords = []
@@ -1260,15 +1225,13 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     for k in range(len(three_centers)):
                         angle_coords.append(three_centers[k])
                         x_coords.append(three_centers[k][0])
-                        #if three_angles[k] < 0:
-                        #    three_angles[k] = -180 - three_angles[k]
+                        if three_angles[k] < 0:
+                            three_angles[k] = -180 - three_angles[k]
                         angles.append(three_angles[k])
-
-                # create a DDO plot using angles and angle_coords        
-
+                    
                 if len(hole_coords) > 0:
                     hole_distances, hole_inds = getNearestNeighbors(hole_coords, angle_coords, 1)
-                
+                    
                     angle_dists = []
                     for dist in hole_distances:
                         angle_dists.append(dist[0])
