@@ -949,7 +949,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         for center in list_of_centers:
             center_position = center.get_location()
             
-            distances, o_inds = getNearestNeighbors(o_locations,center_position, center.get_type())
+            distances, o_inds = getNearestNeighbors(o_locations,[center_position], center.get_type())
             
             for o in o_inds[0]:
                 center.set_atom(o_locations[o])
@@ -1172,63 +1172,32 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
                 
             def ddoPlot(si_locations, hole_coords, use_hole_dist):
-                cos_of_angles = []
-                angles_in_rad = []
-                final_angle_pairs = []
-                centers = []
-                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
-                
-                for i in range(len(si_locations)):
-                    origin_vect_dist = 1
-                    origin_vect_ind = [1, 0]
-                    angle_pair = []
-                    atom_centers = []
-                    
-                    for j in (1, 2, 3):
-                        new_vect_dist = si_dist[i][j]
-                        midpoint_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0] / 2, 
-                                        si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1] / 2]
-                        new_vect_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0], 
-                                          si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]]
-                        dot_prod = (new_vect_ind[0] * origin_vect_ind[0] +
-                                    new_vect_ind[1] * origin_vect_ind[1])
-                        dist_prod = origin_vect_dist * new_vect_dist
-                        if new_vect_ind[1] < 0:
-                            dot_prod *= -1
-                        angle_pair.append(dot_prod / dist_prod)
-                        atom_centers.append(midpoint_ind)
-                    cos_of_angles.append(angle_pair)
-                    centers.append(atom_centers)
-                    
-                for pair in cos_of_angles:
-                    pairs_in_rad = numpy.arccos(pair)
-                    for ang in range(len(pair)):
-                        if pair[ang] < 0:
-                            pairs_in_rad[ang] *= -1
-                    angles_in_rad.append(pairs_in_rad)
-                for pair in angles_in_rad:
-                    newpair = []
-                    for angle in pair:
-                        if angle > (numpy.pi / 2):
-                            newpair.append((angle * 180 / numpy.pi))
-                        else:
-                            newpair.append(angle * 180 / numpy.pi)
-                    final_angle_pairs.append(newpair)
-                
                 angle_coords = []
                 angles = []
                 x_coords = []
                 
-                for i in range(len(centers)):
-                    three_centers = centers[i]
-                    three_angles = final_angle_pairs[i]
-                    for k in range(len(three_centers)):
-                        angle_coords.append(three_centers[k])
-                        x_coords.append(three_centers[k][0])
-                        if three_angles[k] < 0:
-                            three_angles[k] = -180 - three_angles[k]
-                        angles.append(three_angles[k])
+                si_dist, si_ind = getNearestNeighbors(si_locations, si_locations, 4)
+                
+                for i in range(len(si_locations)):                 
+                    start_coord = si_locations[si_ind[i][0]]
+                                        
+                    for j in (1, 2, 3):
+                        end_coord = si_locations[si_ind[i][j]]
+                        
+                        ddo_vector = [end_coord[0] - start_coord[0], end_coord[1] - start_coord[1]]
+                        
+                        slope = ddo_vector[1]/ddo_vector[0]
+                        
+                        midpoint_coord = [(start_coord[0] + end_coord[0])/2, (start_coord[1] + end_coord[1])/2]
+                        
+                        rad_angle = math.atan(slope)
+                        
+                        degree_angle = (rad_angle * 180 / numpy.pi)
                     
+                        angles.append(degree_angle)
+                        angle_coords.append(midpoint_coord)
+                        x_coords.append(midpoint_coord[0])
+                        
                 if len(hole_coords) > 0:
                     hole_distances, hole_inds = getNearestNeighbors(hole_coords, angle_coords, 1)
                     
