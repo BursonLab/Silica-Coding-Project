@@ -51,8 +51,9 @@ light_centers = False
 
 save_figures = False
 
-#Colors for each of the ring numbers
-colors = [[178, 112, 248], [75, 176, 246], [67, 196, 127], [249, 222, 62], [249, 76, 62], [247, 38, 232]]
+#Colors for each of the ring numbers 
+#DSW edit 5/31/18: made 9 member brown to match PRL
+colors = [[178, 112, 248], [75, 176, 246], [67, 196, 127], [249, 222, 62], [249, 76, 62], [147, 73, 0]]
 
 scaling_factor = 1
 
@@ -1059,9 +1060,11 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         def saveImage():
             print("Saving image...")
             io.imsave(filename[:-4] + 'plotted.jpg', image)
+            print("Image Saved")
         
         saveBtn = Tk.Button(master=root, text='Save Image', command=saveImage)
         saveBtn.pack(side=Tk.RIGHT)
+            
         
         def xyzFile():
             hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
