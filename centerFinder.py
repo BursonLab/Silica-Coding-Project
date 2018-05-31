@@ -214,7 +214,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     #Finds the distances and indices of the nearest given number of the base coords
     # to each of the provided search coords
     def getNearestNeighbors(base_coords, search_coords, num_neighbors):
+        
         nearest = NearestNeighbors(n_neighbors=num_neighbors, algorithm='ball_tree').fit(base_coords)
+        
         dist, ind = nearest.kneighbors(search_coords)
         return dist, ind
     
@@ -491,9 +493,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 si_ring_nums.append(ring.get_type())
             
             si_pix = nmToPixels(si_loc, dimensions, image_width, image_height)
-            
+            print("***************")
             dists, inds = getNearestNeighbors(hole_coords, si_pix, 2)
-            
+            print("*****&&&&&****")
             si_dist = pixelDistToNm(dists[0][1], dimensions, image_width, image_height)
             
             bin_start = 0
@@ -1147,6 +1149,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 #See if the bin size is valid, and if so, plot the ring size percentages
                 try:
                     binSize = float(binSizeTxt.get())
+                    print(binSize)
                     bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist, si_objects)
                     
                     plotRingSizePercent(bin_list, bin_mids)
