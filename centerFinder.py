@@ -215,6 +215,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     # to each of the provided search coords
     def getNearestNeighbors(base_coords, search_coords, num_neighbors):
         
+        #num_neighbors = num_neighbors.reshape(1,-1)
+        
         nearest = NearestNeighbors(n_neighbors=num_neighbors, algorithm='ball_tree').fit(base_coords)
         
         dist, ind = nearest.kneighbors(search_coords)
