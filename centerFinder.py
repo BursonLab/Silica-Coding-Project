@@ -216,13 +216,15 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     def getNearestNeighbors(base_coords, search_coords, num_neighbors):
         
         #num_neighbors = num_neighbors.reshape(1,-1)
-        
-        nearest = NearestNeighbors(n_neighbors=num_neighbors, algorithm='ball_tree').fit(base_coords)
+#        print("search coords: ", search_coords)
+        nearest = NearestNeighbors(n_neighbors=num_neighbors, 
+                                   algorithm='ball_tree').fit(base_coords)
         
         dist, ind = nearest.kneighbors(search_coords)
         return dist, ind
     
-
+    
+    
     #Get coordinates of borders of holes from greyscale image
     def getHoleCoords(greyscale, num_holes):
         if num_holes > 0:
@@ -368,6 +370,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     average_closest = numpy.median(c_dist[:][1])
     
     def getNumNeighbors(centers, thresh, average_closest):
+        """Returns several lists, including the distance to hole (nm), 
+        ring sizes, ring center coordinates, and  hole coordinates (nm)"""
         #Get distances and indices of 9 nearest neighbors to every center
         distances, indices = getNearestNeighbors(centers, centers, 10)
     
@@ -376,7 +380,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             hole_distances, hole_inds = getNearestNeighbors(hole_coords, centers, 2)
     
         #TODO: ask thomas about these
-        hole_dist = [] #List of the distance of each center to nearest hole edge, I think
+        hole_dists = [] #List of the distance of each center to nearest hole edge, I think
         ring_size = [] #List of size of each ring
         center_coord = []  #coordinates of each center (All 3 lists are correlated)
     
@@ -423,15 +427,21 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 
             #Gets the coordinates of the circles around the centers
             if 4 <= scaled_num_neighbors <= 9 and percent_visible < 1.2 and cur_hole_dist > exclude_thresh*average_closest:
-                hole_dist.append(cur_hole_dist)
+                hole_dists.append(cur_hole_dist)
                 ring_size.append(scaled_num_neighbors)
                 center_coord.append([(centers[k][0]+centroid[0])/2,(centers[k][1]+centroid[1])/2])
           
-        hole_nm_coords = []
+        hole_nm_coords = [] #converts hole coords to nm
         for coord in hole_coords:
             hole_nm_coords.append(pixelsToNm(coord, dimensions, image_width, image_height))
+#        hole_coords = hole_nm_coords
         
-        return hole_dist, ring_size, center_coord, hole_nm_coords
+        
+        hole_nm_dists = [] #converts hole_dists to nm
+        for dist in hole_dists:
+            hole_nm_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
+        
+        return hole_nm_dists, ring_size, center_coord, hole_nm_coords
     
     #Threshold for the maximum distance that two centers can be apart to be concidered neighbors
     #thresh = 1.35
@@ -476,39 +486,44 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         bin_mids = [] #midpoint distance of each ring/bin from edge of hole
         
 #This code graveyard might be useful for when we have holes...
-#        nm_dists = []
-#        for dist in distances:
-#            nm_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
+#6/5/18 DSW: I'm still unhappy with this, need to convert whole program to nm
+        if use_hole: #converts the hole_dist list to nm
+            nm_dists = []
+            for dist in distances:
+                nm_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
+            distances = nm_dists
     
         #Get maximum distance away that a ring is from the hole or axis (in nm)
+        print("use hole?", use_hole, "Distances", distances)
         max_dist = float(numpy.amax(distances))
+        print("max_dist: ", max_dist)
         
         bin_start = 0
         while bin_start < max_dist:
             #creates the bins
             bin_mids.append(bin_start + (bin_size/2)) #save each midpoint in a list
-            bin_list.append([]) #put bins in the bin_list
+            
+            #put bins in the bin_list
+            #for each bin, set up a list of frequencies for each ring type
+            bin_list.append([0, 0, 0, 0, 0, 0]) 
             bin_start += bin_size
         
         for si in si_objects:
+            #measure its distance to either the hole or edge
             si_loc = si.get_location()
-            si_rings = si.get_rings() #get group of 3 rings for each Si
-            
-            si_ring_nums = []
-            for ring in si_rings:
-                si_ring_nums.append(ring.get_type()) #adds the 3 ring types to a list
-            
             if use_hole:
                 #If relating distances to hole, need to find which point on the
                 #edge of the hole to measure from
                 si_pix = nmToPixels(si_loc, dimensions, image_width, image_height)
-                print("***************")
-                dists, inds = getNearestNeighbors(hole_coords, si_pix, 2)
-                print("****&&&&&&*****")
+                
+                dists, inds = getNearestNeighbors(hole_coords, [si_pix], 2)
                 si_dist = pixelDistToNm(dists[0][1], dimensions, image_width, image_height)
             else:
                 #otherwise, just measure to the y-axis (use the x-coordinate)
                 si_dist = si.get_location()[0]
+                print(si_dist)
+            
+            si_rings = si.get_rings() #get list of 3 ring objects for each Si
             
             #cycle through bins to find which one to put these 3 ring types in
             bin_start = 0
@@ -516,9 +531,12 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             while bin_start < max_dist:
                 if bin_start <= si_dist < bin_start + bin_size:
                     #If the distance for the si fits in the bin,
-                    for num in si_ring_nums:
-                        #put the 3 ring types in the bin
-                        bin_list[bin_num].append(num)
+                    for ring in si_rings:
+                        #increment each ring type for the si's rings
+                        ring_type = ring.get_type()
+                        #only add a fraction to the frequency,
+                        #ex: 1 Si in a 7-mem ring is only 1/7 of the ring
+                        bin_list[bin_num][ring_type - 4] += (1/ring_type)
                 
                 bin_start += bin_size
                 bin_num += 1
@@ -982,6 +1000,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
     
     def createWindow(image):
+        print()
         print("Launched Auto Ring Finder")
         fig = Figure(figsize=(10, 6), dpi=100)
         ax = fig.add_subplot(111)
@@ -1092,8 +1111,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             removeRingBtn.destroy()
             moveRingBtn.destroy()
             doneBtn.destroy()
-            
+#            print(centers)
             hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
+#            print("hole_dist is: ", hole_dist, "hole_coords are: ", hole_coords)
             
             #Plots the silicon and oxygen positions onto image and returns all 
             # object needed to construct other plots
@@ -1126,74 +1146,87 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 plt.xticks(y_pos, triplet_types,rotation=90)
                 plt.show()
                 
-            def plotRingSizePercent(bin_list, bin_mids):  #Need to modify this to actually work again
+            def plotRingSizePercent(bin_list, bin_mids, use_hole):  #Need to modify this to actually work again
                 
                 size_perc = [[],[],[],[],[],[]]
-            
-                for cur_bin in bin_list:
-                    #Initializes the counts of the ring sizes for the bin at zero
-                    #[4-member, 5-member, 6-member, ...]
-                    bin_perc = [0,0,0,0,0,0]
-                
-                    #Increments the bin perc for each ring of that size
-                    for size in cur_bin:
-                        bin_perc[size-4] += 1 
-                        #ex: 4-membered rings go to slot 0 in array
-                        
-                    for i in range(len(bin_perc)):
-                        bin_perc[i] = bin_perc[i] / (2*(i + 4))
-                
-                    #Divides all ring size totals by the total number of rings in bin
-                    bin_perc = [x / numpy.sum(bin_perc) for x in bin_perc]
-                
-                    for k in range(6):
-                        size_perc[k].append(bin_perc[k])
+                for curr_bin in bin_list:
+                    curr_bin_tot = sum(curr_bin) #total num of rings in bin
+                    if curr_bin_tot != 0:
+                        #Divides all ring size totals by the total number of rings in bin
+                        for i in range(6):
+                            size_perc[i].append(curr_bin[i]/curr_bin_tot)
                                         
                 #Plots the mid point of the bin vs. percentages of each ring size
-                for i in range(len(size_perc)): 
-                    plt.plot(bin_mids, size_perc[i], label=str(i+4) + ' MR')
+                for i in range(len(size_perc)):
+                    print("bin_mids are: ", bin_mids)
+                    print("size_perc is: ", size_perc)
+                    plt.plot(bin_mids, size_perc[i], 
+                             label=str(i+4) + ' MR')
             
                 #Adds a legend to the plot
                 plt.legend(loc=0, ncol=2)
-            
                 plt.title('Ring Size Percentage')
                 plt.ylabel('Percentage of Rings')
-                plt.xlabel('Distance from Nearest Hole (nm)')
+                if use_hole:
+                    plt.xlabel('Distance from Nearest Hole (nm)')
+                else:
+                    plt.xlabel('Distance from Edge (nm)')
                 plt.show()
                 
-            def percPlot():
-                #See if the bin size is valid, and if so, plot the ring size percentages
-                try:
-                    binSize = float(binSizeTxt.get())
-                    bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist, si_objects)
+            def percPlot(use_hole):
+                """See if the bin size is valid, and if so, plot the ring size 
+                percentages"""
+#                try:
+                
+                binSize = float(binSizeTxt.get())
+                
+                if use_hole:
+                    bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist,
+                                                            si_objects,
+                                                            use_hole = True)
+                else:
+                    distancesFromAxis = []
+                    for si in si_objects:
+                        #create a list of all of the Si distances from the axis
+                        x_coord = si.get_location()[0]
+                        distancesFromAxis.append(x_coord)
+                    bin_list, bin_mids = splitRingsIntoBins(binSize, 
+                                                            distancesFromAxis, 
+                                                            si_objects, use_hole)
+                
+                plotRingSizePercent(bin_list, bin_mids, use_hole)
+
+#                except ValueError:
+#                    messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
                     
-                    plotRingSizePercent(bin_list, bin_mids)
-                except ValueError:
-                    messagebox.showerror("Error", "Invalid Bin Size (must be a float)")
-                    
-            def drawCrystalPlot(bin_list, bin_mids, x_label): #TODO: Needs to be updated for new binning
+            def drawCrystalPlot(bin_list, bin_mids, x_label): 
                 """Plots the Crystallinity, has a variable horizontal axis label to 
                 differentiate between hole or axis"""    
+                
+                #create a list of crystallinities for each bin in bin_list
                 crys_list = []
-                for cur_list in bin_list:
-                    #creates a list of crystallinities for each bin in bin_list
-                    num_sixes = cur_list.count(6) #counts 6 mem rings in bin
-                    crystallinity = num_sixes/len(cur_list) #divides by tot # of rings
-                    crys_list.append(crystallinity)
-                    
-                            
+                for curr_bin in bin_list:
+                    #divide freq of 6-mem rings by sum of all freqs
+                    curr_bin_tot = sum(curr_bin)
+                    if curr_bin_tot != 0:
+                        crystallinity = curr_bin[2]/(curr_bin_tot) #divides by tot # of si
+                        crys_list.append(crystallinity)
+                
+                #plot the list
+                print(x_label, " bin_mids are: ", bin_mids)
+                
                 plt.plot(bin_mids, crys_list)
                 plt.title('Crystallinity')
                 plt.xlabel(x_label)
                 plt.ylabel('Crystallinity')
                 plt.show()
                 
-            def plotCrystal(use_hole_dist): 
+            def plotCrystal(use_hole): 
                 """Instrusts a function to create bins of ring types associated
                 with each Si, then instructs another function to plot them."""
 #                try:
                 binSize = float(binSizeTxt.get())
-                if use_hole_dist:
+                if use_hole:
                     #Plot in relation to the hole
                     bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist,
                                                             si_objects, 
@@ -1267,29 +1300,55 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 plt.show()
                 
             
+            def percPlotHole():
+                print()
+                print("Plotting Ring Size Percent in relation to a hole")
+                print()
+                percPlot(True)
+                
+            def percPlotX():
+                print()
+                print("Plotting Ring Size Percent in relation to distance from the edge")
+                print()
+                percPlot(False)
+            
             def plotCrystalHoles():
+                print()
+                print("Plotting Crystallinity in relation to a hole")
+                print()
                 plotCrystal(True)
                 
             def plotCrystalInX():
+                print()
+                print("Plotting Crystallinity in relation to distance from the edge")
+                print()
                 plotCrystal(False)
              
+            def plotDDOHoles():
+                print()
+                print("Plotting DDO in relation to a hole")
+                print()
+                ddoPlot(si_locations,hole_coords, True)
+            
             def plotDDOinX():
+                print()
+                print("Plotting DDO in relation to distance from the edge")
+                print()
                 ddoPlot(si_locations,hole_coords, False)
                 
-            def plotDDOHoles():
-                ddoPlot(si_locations,hole_coords, True)
                 
             """PLOTTING AND EXPORTING DROPDOWN MENU CODE"""
             
             menubar = Tk.Menu(root)
             
             plotMenu = Tk.Menu(menubar, tearoff=0)
-            plotMenu.add_command(label="Ring Size Percentage", command=percPlot)
-            plotMenu.add_command(label="Crystallinity from hole", command=plotCrystalHoles)
+            plotMenu.add_command(label="Ring Size Percentage from Hole", command=percPlotHole)
+            plotMenu.add_command(label="Ring Size Percentage in X", command=percPlotX)
+            plotMenu.add_command(label="Crystallinity from Hole", command=plotCrystalHoles)
             plotMenu.add_command(label="Crystallinity in X", command=plotCrystalInX)
             plotMenu.add_command(label="Triplet Type Bar", command=tripletBar)
+            plotMenu.add_command(label="DDO Plot from Hole", command=plotDDOHoles)
             plotMenu.add_command(label="DDO Plot in X", command=plotDDOinX)
-            plotMenu.add_command(label="DDO Plot Hole Distance", command=plotDDOHoles)
             menubar.add_cascade(label="Plot", menu=plotMenu)
             
             #Creates the export dropdown menu
