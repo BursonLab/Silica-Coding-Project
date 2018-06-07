@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """
 Created on Thu Apr 19 14:48:58 2018
-
 @author: thomasmarsh
 """
 
@@ -378,7 +377,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         if num_holes > 0:
             hole_distances, hole_inds = getNearestNeighbors(hole_coords, centers, 2)
     
-        
+        #TODO: ask thomas about these
         hole_dists = [] #List of the distance of each center to nearest hole edge, I think
         ring_size = [] #List of size of each ring
         center_coord = []  #coordinates of each center (All 3 lists are correlated)
@@ -493,7 +492,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #for each bin, set up a list of frequencies for each ring type
             bin_list.append([0, 0, 0, 0, 0, 0]) 
             bin_start += bin_size
-        
         
         for i in range(len(si_objects)):
             si = si_objects[i] #This is the Si that we are looking at
@@ -898,7 +896,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         for j in range(len(triples)):
             si_locations.append(si_finder(triples[j]))
             
-       
         
         #make a list of the Si atoms as objects
         si_objects = []
@@ -1096,14 +1093,13 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #Plots the silicon and oxygen positions onto image and returns all 
             # object needed to construct other plots
             plot_image, o_locations, si_locations, triplet_types, counts, si_objects = getSiOPlot(center_coord, ring_size)      
-
             
-            #outline hole with light blue
             pix_hole_coords = []
             for coord in hole_coords:
                 pix_hole_coords.append(nmToPixels(coord, 
                                                   dimensions, 
                                                   image_width, image_height))
+            
             plotCirclesOnImage(plot_image, pix_hole_coords, 5, [0,191,255])
             
             fig.clf()
@@ -1167,6 +1163,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 #                try:
                 
                 binSize = float(binSizeTxt.get())
+                print("length of si_objects", len(si_objects))
+                print("length of distances", len(hole_dist))
                 
                 if use_hole:
                     bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist,
@@ -1202,6 +1200,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     crys_list.append(crystallinity)
                 
                 #plot the list
+                
                 plt.plot(bin_mids, crys_list)
                 plt.title('Crystallinity')
                 plt.xlabel(x_label)
