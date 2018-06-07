@@ -216,7 +216,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     def getNearestNeighbors(base_coords, search_coords, num_neighbors):
         
         #num_neighbors = num_neighbors.reshape(1,-1)
-#        print("search coords: ", search_coords)
         nearest = NearestNeighbors(n_neighbors=num_neighbors, 
                                    algorithm='ball_tree').fit(base_coords)
         
@@ -256,7 +255,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 
                 del regions[max_ind]
                 del areas[max_ind]
-        
+            
             return hole_coords
         else:
             return []
@@ -271,8 +270,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     
         return ndi.binary_fill_holes(morphology.binary_closing(hole_image))
     
-    hole_coords = getHoleCoords(grey, num_holes)
     
+    hole_coords = getHoleCoords(grey, num_holes)
     holes = getHoleImage(hole_coords)
     
     if not import_xyz:
@@ -434,7 +433,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         hole_nm_coords = [] #converts hole coords to nm
         for coord in hole_coords:
             hole_nm_coords.append(pixelsToNm(coord, dimensions, image_width, image_height))
-#        hole_coords = hole_nm_coords
         
         
         hole_nm_dists = [] #converts hole_dists to nm
@@ -474,30 +472,18 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         
         text_file.close()
         
-    #Splits the ring size and hole distance data into bins based on 
-    # a given bin size and plots histograms of all of the bins 
-    def splitRingsIntoBins(bin_size, distances, si_objects, use_hole): #Could possibly improve this to speed up a bit
+     
+    def splitRingsIntoBins(bin_size, distances, si_objects): #Could possibly improve this to speed up a bit
         """Divides rings into bins based on their distance from a hole/line of 
         reference (either a hole or the left side of the sample. Takes a bin 
-        size, list of distances to hole/line, and a corresponsing list of Si
+        size, list of distances to hole/line (in nm), and a corresponsing list of Si
         objects.  For each bin, this function finds each Si atom within its 
         range, and adds its 3 associated rings types to the bin.  """
         bin_list = [] #2-d array of each bin of ring types (types are ints)
         bin_mids = [] #midpoint distance of each ring/bin from edge of hole
         
-#This code graveyard might be useful for when we have holes...
-#6/5/18 DSW: I'm still unhappy with this, need to convert whole program to nm
-        if use_hole: #converts the hole_dist list to nm
-            nm_dists = []
-            for dist in distances:
-                nm_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
-            distances = nm_dists
-    
         #Get maximum distance away that a ring is from the hole or axis (in nm)
-        print("use hole?", use_hole, "Distances", distances)
-        max_dist = float(numpy.amax(distances))
-        print("max_dist: ", max_dist)
-        
+        max_dist = float(numpy.max(distances))
         bin_start = 0
         while bin_start < max_dist:
             #creates the bins
@@ -508,22 +494,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             bin_list.append([0, 0, 0, 0, 0, 0]) 
             bin_start += bin_size
         
-        for si in si_objects:
-            #measure its distance to either the hole or edge
-            si_loc = si.get_location()
-            if use_hole:
-                #If relating distances to hole, need to find which point on the
-                #edge of the hole to measure from
-                si_pix = nmToPixels(si_loc, dimensions, image_width, image_height)
-                
-                dists, inds = getNearestNeighbors(hole_coords, [si_pix], 2)
-                si_dist = pixelDistToNm(dists[0][1], dimensions, image_width, image_height)
-            else:
-                #otherwise, just measure to the y-axis (use the x-coordinate)
-                si_dist = si.get_location()[0]
-                print(si_dist)
-            
-            si_rings = si.get_rings() #get list of 3 ring objects for each Si
+        for i in range(len(si_objects)):
+            si = si_objects[i] #This is the Si that we are looking at
+            si_dist = distances[i] #Here is its distance from the hole or axis
+            si_rings = si.get_rings() #Here is a list of 3 ring objects for each Si
             
             #cycle through bins to find which one to put these 3 ring types in
             bin_start = 0
@@ -542,6 +516,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 bin_num += 1
         
         return bin_list, bin_mids
+    
     
     def distance(position1, position2):
         """finds the distance between two atoms"""
@@ -1063,6 +1038,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             image = io.imread(filename)
             
             hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
+            
             plotRingCenters(image, ring_size, center_coord, average_closest)
             
             ax.imshow(image)
@@ -1111,14 +1087,21 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             removeRingBtn.destroy()
             moveRingBtn.destroy()
             doneBtn.destroy()
-#            print(centers)
-            hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
-#            print("hole_dist is: ", hole_dist, "hole_coords are: ", hole_coords)
+
+            _, ring_size, center_coord, _ = getNumNeighbors(centers, thresh, average_closest)
+
             
             #Plots the silicon and oxygen positions onto image and returns all 
             # object needed to construct other plots
             plot_image, o_locations, si_locations, triplet_types, counts, si_objects = getSiOPlot(center_coord, ring_size)      
-                        
+            
+            pix_hole_coords = []
+            for coord in hole_coords:
+                pix_hole_coords.append(nmToPixels(coord, 
+                                                  dimensions, 
+                                                  image_width, image_height))
+            
+            plotCirclesOnImage(plot_image, pix_hole_coords, 5, [0,191,255])
             
             fig.clf()
             ax = fig.add_subplot(111)
@@ -1149,17 +1132,19 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             def plotRingSizePercent(bin_list, bin_mids, use_hole):  #Need to modify this to actually work again
                 
                 size_perc = [[],[],[],[],[],[]]
+                
                 for curr_bin in bin_list:
                     curr_bin_tot = sum(curr_bin) #total num of rings in bin
-                    if curr_bin_tot != 0:
-                        #Divides all ring size totals by the total number of rings in bin
-                        for i in range(6):
+                    #Divides all ring size totals by the total number of rings in bin
+                    for i in range(6):
+                        if curr_bin_tot != 0:
                             size_perc[i].append(curr_bin[i]/curr_bin_tot)
+                        else:
+                            size_perc[i].append(0)
+                    
                                         
                 #Plots the mid point of the bin vs. percentages of each ring size
                 for i in range(len(size_perc)):
-                    print("bin_mids are: ", bin_mids)
-                    print("size_perc is: ", size_perc)
                     plt.plot(bin_mids, size_perc[i], 
                              label=str(i+4) + ' MR')
             
@@ -1182,8 +1167,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 
                 if use_hole:
                     bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist,
-                                                            si_objects,
-                                                            use_hole = True)
+                                                            si_objects)
                 else:
                     distancesFromAxis = []
                     for si in si_objects:
@@ -1192,7 +1176,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         distancesFromAxis.append(x_coord)
                     bin_list, bin_mids = splitRingsIntoBins(binSize, 
                                                             distancesFromAxis, 
-                                                            si_objects, use_hole)
+                                                            si_objects)
                 
                 plotRingSizePercent(bin_list, bin_mids, use_hole)
 
@@ -1210,10 +1194,11 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     curr_bin_tot = sum(curr_bin)
                     if curr_bin_tot != 0:
                         crystallinity = curr_bin[2]/(curr_bin_tot) #divides by tot # of si
-                        crys_list.append(crystallinity)
+                    else:
+                        crystallinity = 0
+                    crys_list.append(crystallinity)
                 
                 #plot the list
-                print(x_label, " bin_mids are: ", bin_mids)
                 
                 plt.plot(bin_mids, crys_list)
                 plt.title('Crystallinity')
@@ -1229,8 +1214,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 if use_hole:
                     #Plot in relation to the hole
                     bin_list, bin_mids = splitRingsIntoBins(binSize, hole_dist,
-                                                            si_objects, 
-                                                            use_hole = True)
+                                                            si_objects)
                     drawCrystalPlot(bin_list, bin_mids, 
                                     'Distance from Hole (nm)')
                 else:
@@ -1243,8 +1227,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     
                     bin_list, bin_mids = splitRingsIntoBins(binSize, 
                                                             distancesFromAxis, 
-                                                            si_objects, 
-                                                            use_hole = False)
+                                                            si_objects)
                     
                     drawCrystalPlot(bin_list, bin_mids, 
                                     'Distance from Edge (nm)')
@@ -1301,39 +1284,21 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 
             
             def percPlotHole():
-                print()
-                print("Plotting Ring Size Percent in relation to a hole")
-                print()
                 percPlot(True)
                 
             def percPlotX():
-                print()
-                print("Plotting Ring Size Percent in relation to distance from the edge")
-                print()
                 percPlot(False)
             
             def plotCrystalHoles():
-                print()
-                print("Plotting Crystallinity in relation to a hole")
-                print()
                 plotCrystal(True)
                 
             def plotCrystalInX():
-                print()
-                print("Plotting Crystallinity in relation to distance from the edge")
-                print()
                 plotCrystal(False)
              
             def plotDDOHoles():
-                print()
-                print("Plotting DDO in relation to a hole")
-                print()
                 ddoPlot(si_locations,hole_coords, True)
             
             def plotDDOinX():
-                print()
-                print("Plotting DDO in relation to distance from the edge")
-                print()
                 ddoPlot(si_locations,hole_coords, False)
                 
                 
