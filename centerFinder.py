@@ -3,7 +3,7 @@
 """
 Created on Thu Apr 19 14:48:58 2018
 
-@author: thomasmarsh
+@author: danwall & thomasmarsh
 """
 
 
@@ -11,7 +11,10 @@ import math
 import numpy
 
 import matplotlib
+
 matplotlib.use('TkAgg')
+
+
 
 from skimage import io
 from skimage import feature
@@ -992,7 +995,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         ax.imshow(image)
         
         canvas = FigureCanvasTkAgg(fig, master=root)
-        canvas.show()
+        canvas.draw()
         canvas.get_tk_widget().pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
     
         toolbar = NavigationToolbar2TkAgg(canvas, root)
