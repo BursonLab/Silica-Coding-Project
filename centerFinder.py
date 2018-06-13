@@ -34,7 +34,7 @@ from scipy import ndimage as ndi
 #import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
-from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2TkAgg
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg, NavigationToolbar2Tk
 
 import sys
 if sys.version_info[0] < 3:
@@ -998,7 +998,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         canvas.draw()
         canvas.get_tk_widget().pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
     
-        toolbar = NavigationToolbar2TkAgg(canvas, root)
+        toolbar = NavigationToolbar2Tk(canvas, root)
         toolbar.update()
         canvas._tkcanvas.pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
         
