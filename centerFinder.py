@@ -10,9 +10,9 @@ Created on Thu Apr 19 14:48:58 2018
 import math
 import numpy
 
-import matplotlib
+#import matplotlib
 
-matplotlib.use('TkAgg')
+#matplotlib.use('TkAgg')
 
 
 
