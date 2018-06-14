@@ -149,17 +149,51 @@ class Si():
 
 class ring_center():
     """ Contains the location of the ring center, and the type of ring
-        (number of members). """
+        (number of members). Objects should always be constructed using the nm 
+        coordinates.  Nanometers is the assumed unit."""
 
-    def __init__(self, ring_type, x, y, z):
+    def __init__(self, ring_type, x, y, z, unit):
         """ Constructor. """
         self._ring_type = ring_type
-        self._location = [x, y, z]
+        if unit == "nm":
+            self._nm_location = [x, y, z]
+            self._pixel_location = [0, 0, 0]
+        else:
+            self._nm_location = [0, 0, 0]
+            self._pixel_location = [x, y, z]
         self._atoms = []
 
-    def get_location(self):
-        """ Returns the location in (x, y, z) form. """
+    def get_nm_location(self):
+        """ Returns the location in (x, y, z) form. Units are nm. """
+        return self._nm_location
+    
+    def get_pix_location(self):
+        """ Returns the location in (x, y, z) form. Units are Pixels"""
         return self._location
+    
+    def find_nm_location(self, nm_dim, im_width, im_height):
+        """ Finds the coordinates in nm when the pixel coordinates are 
+        known. """
+        scale = (nm_dim[0]/im_width)
+        for i in range(3):
+            self._nm_location[i] = scale * self._pixels_location[i]
+
+    def find_pix_location(self, nm_dim, im_width, im_height):
+        """ Finds the coordinates in pixels when the nm coordinates are 
+        known. """
+        scale = (im_width/nm_dim[0])
+        for i in range(3):
+            self._pixel_location[i] = scale * self._location[i]
+
+    def change_location(self, x, y, z, unit, nm_dim, im_width, im_height):
+        """ Changes the coordinates of the center, and finds the coordinates in
+        the other unit. """
+        if unit == "nm":
+            self._nm_location = [x, y, z]
+            self.find_pix_location(nm_dim, im_width, im_height)
+        else:
+            self._pixel_location = [x, y, z]
+            self.find_nm_location(nm_dim, im_width, im_height)
 
     def get_type(self):
         """returns type of ring"""
