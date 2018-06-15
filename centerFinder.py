@@ -484,50 +484,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         text_file.close()
         
      
-    def splitRingsIntoBins(bin_size, distances, si_objects): #Could possibly improve this to speed up a bit
-        """Divides rings into bins based on their distance from a hole/line of 
-        reference (either a hole or the left side of the sample. Takes a bin 
-        size, list of distances to hole/line (in nm), and a corresponsing list of Si
-        objects.  For each bin, this function finds each Si atom within its 
-        range, and adds its 3 associated rings types to the bin.  """
-        bin_list = [] #2-d array of each bin of ring types (types are ints)
-        bin_mids = [] #midpoint distance of each ring/bin from edge of hole
-        
-        #Get maximum distance away that a ring is from the hole or axis (in nm)
-        max_dist = float(numpy.max(distances))
-        bin_start = 0
-        while bin_start < max_dist:
-            #creates the bins
-            bin_mids.append(bin_start + (bin_size/2)) #save each midpoint in a list
-            
-            #put bins in the bin_list
-            #for each bin, set up a list of frequencies for each ring type
-            bin_list.append([0, 0, 0, 0, 0, 0]) 
-            bin_start += bin_size
-        
-        
-        for i in range(len(si_objects)):
-            si = si_objects[i] #This is the Si that we are looking at
-            si_dist = distances[i] #Here is its distance from the hole or axis
-            si_rings = si.get_rings() #Here is a list of 3 ring objects for each Si
-            
-            #cycle through bins to find which one to put these 3 ring types in
-            bin_start = 0
-            bin_num = 0
-            while bin_start < max_dist:
-                if bin_start <= si_dist < bin_start + bin_size:
-                    #If the distance for the si fits in the bin,
-                    for ring in si_rings:
-                        #increment each ring type for the si's rings
-                        ring_type = ring.get_type()
-                        #only add a fraction to the frequency,
-                        #ex: 1 Si in a 7-mem ring is only 1/7 of the ring
-                        bin_list[bin_num][ring_type - 4] += (1/ring_type)
-                
-                bin_start += bin_size
-                bin_num += 1
-        
-        return bin_list, bin_mids
     
     
     def distance(position1, position2):
@@ -768,11 +724,11 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     
         return o_pos
     
-    def centers_to_objects(ring_size, center_list):
+    def centers_to_objects(ring_size, center_list, unit):
         """Converts list of centers to center objects"""
         center_obj_list = []
         for i in range(len(center_list)):
-            center = Si_Ring_Classes.ring_center(ring_size[i], center_list[i][0], center_list[i][1], 0)
+            center = Si_Ring_Classes.ring_center(ring_size[i], center_list[i][0], center_list[i][1], 0, unit)
             center_obj_list.append(center)
         return center_obj_list
     
@@ -834,12 +790,12 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     
        
         #convert XYZ file (of centers) to list of center objects
-        list_of_centers = centers_to_objects(ring_size, centers_nm)
+        list_of_centers = centers_to_objects(ring_size, centers_nm, 'nm')
         
         #make list of all center positions
         positions = []
         for center in list_of_centers:
-            position = center.get_location()
+            position = center.get_nm_location()
             positions.append(position)
     
         # sort positions for the double finder function
@@ -915,7 +871,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         si_objects = []
         for loc in si_locations:
             #consturct Si object
-            si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2])
+            si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2], 'nm')
             #find rings for each object
             si.find_rings(list_of_centers, x_max, y_max, edge_buffer)
             si_objects.append(si) #add object to list
@@ -970,7 +926,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             
         #Add oxygens to ring's lists of atoms
         for center in list_of_centers:
-            center_position = center.get_location()
+            center_position = center.get_nm_location()
             
             distances, o_inds = getNearestNeighbors(o_locations,[center_position], center.get_type())
             
@@ -1004,6 +960,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         
         cid = []
         
+        autoRingToggle = Tk.IntVar()
+        autoRingToggle.set(1) 
+        
         binSizeTxt = Tk.StringVar()
         
         """ METHODS FOR MANUALLY EDITING CENTERS"""
@@ -1012,7 +971,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #Add a center where the user clicked
             centers.append([event.xdata, event.ydata]);
     
-            #Replot image
             replotImage()
             
         def removecenter(event):
@@ -1026,7 +984,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     match_ind = i
             del centers[match_ind]
             
-            #Replot image
             replotImage()
             
         def movecenter(event):
@@ -1043,13 +1000,14 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #Replaces the center with one in the location clicked
             centers.append([event.xdata, event.ydata]);
             
-            #Replot image
             replotImage()
             
+        
         def replotImage():
             #Replot image
             image = io.imread(filename)
             
+#            if autoRingToggle.get():
             hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
             
             plotRingCenters(image, ring_size, center_coord, average_closest)
@@ -1070,6 +1028,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         def ringMove():
             cid.append(canvas.mpl_connect('button_press_event', movecenter))
         
+        
         """EDITING BUTTON GUI CODE"""
         
         addRingBtn = Tk.Button(master=root, text='Add Ring', command=ringAdd)
@@ -1080,6 +1039,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         
         moveRingBtn = Tk.Button(master=root, text='Move Ring', command=ringMove)
         moveRingBtn.pack(side=Tk.LEFT)
+        
+        autoRingChkBtn = Tk.Checkbutton(master=root, text='Autocorrect Rings', 
+                                     variable=autoRingToggle)
+        autoRingChkBtn.pack(side=Tk.LEFT)
         
         def saveImage():
             print("Saving image...")
@@ -1099,6 +1062,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             addRingBtn.destroy()
             removeRingBtn.destroy()
             moveRingBtn.destroy()
+            autoRingChkBtn.destroy()
             doneBtn.destroy()
 
             _, ring_size, center_coord, _ = getNumNeighbors(centers, thresh, average_closest)
@@ -1123,6 +1087,53 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             canvas.draw()     
             
             """PLOTTING AND EXPORTING METHODS"""
+          
+            def splitRingsIntoBins(bin_size, distances, si_objects): #Could possibly improve this to speed up a bit
+                """Divides rings into bins based on their distance from a hole/line of 
+                reference (either a hole or the left side of the sample. Takes a bin 
+                size, list of distances to hole/line (in nm), and a corresponsing list of Si
+                objects.  For each bin, this function finds each Si atom within its 
+                range, and adds its 3 associated rings types to the bin.  """
+                bin_list = [] #2-d array of each bin of ring types (types are ints)
+                bin_mids = [] #midpoint distance of each ring/bin from edge of hole
+                
+                #Get maximum distance away that a ring is from the hole or axis (in nm)
+                max_dist = float(numpy.max(distances))
+                bin_start = 0
+                while bin_start < max_dist:
+                    #creates the bins
+                    bin_mids.append(bin_start + (bin_size/2)) #save each midpoint in a list
+                    
+                    #put bins in the bin_list
+                    #for each bin, set up a list of frequencies for each ring type
+                    bin_list.append([0, 0, 0, 0, 0, 0]) 
+                    bin_start += bin_size
+                
+                
+                for i in range(len(si_objects)):
+                    si = si_objects[i] #This is the Si that we are looking at
+                    si_dist = distances[i] #Here is its distance from the hole or axis
+                    si_rings = si.get_rings() #Here is a list of 3 ring objects for each Si
+                    
+                    #cycle through bins to find which one to put these 3 ring types in
+                    bin_start = 0
+                    bin_num = 0
+                    while bin_start < max_dist:
+                        if bin_start <= si_dist < bin_start + bin_size:
+                            #If the distance for the si fits in the bin,
+                            for ring in si_rings:
+                                #increment each ring type for the si's rings
+                                ring_type = ring.get_type()
+                                #only add a fraction to the frequency,
+                                #ex: 1 Si in a 7-mem ring is only 1/7 of the ring
+                                bin_list[bin_num][ring_type - 4] += (1/ring_type)
+                        
+                        bin_start += bin_size
+                        bin_num += 1
+                
+                return bin_list, bin_mids
+            
+            """Exporting to File"""
             
             def outputO():
                 # write O positions to an out file
@@ -1143,6 +1154,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 plt.xticks(y_pos, triplet_types,rotation=90)
                 plt.show()
                 
+            """Drawing Plots"""
+            
             def drawPercPlot(bin_list, bin_mids, use_hole):  #Need to modify this to actually work again
                 
                 size_perc = [[],[],[],[],[],[]]
@@ -1362,7 +1375,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             
         #Button to finish editing and move to exporting / plotting graphs    
         doneBtn = Tk.Button(master=root, text='Done Editing', command=doneEditing)
-        doneBtn.pack(side=Tk.LEFT)
+        doneBtn.pack(side=Tk.RIGHT)
 
     createWindow(image)
     

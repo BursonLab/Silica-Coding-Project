@@ -12,12 +12,22 @@ def get_distance(pt1, pt2):
 
 class Si():
     """ Contains the location of the Si atom, as well as each of the
-        three rings surrounding it.  """
+        three rings surrounding it. Objects do not automatically calculate 
+        their locations if you do not tell them to. NOTE: The main 
+        functionality is done in nanometers.  Pixel locations are held on to so
+        they can be easy to grab, but, if you start calling complex methods 
+        with pixel dimensions, you're going to have a bad time. """
 
     """ Public Methods """
 
-    def __init__(self, x, y, z):
-        self._location = [x, y, z]
+    def __init__(self, x, y, z, unit):
+        """ Constructor """
+        if unit == "nm":
+            self._nm_location = [x, y, z]
+            self._pixel_location = [0, 0, 0]
+        else:
+            self._pixel_location = [x, y, z]
+            self._nm_location = [0, 0, 0]
         self._rings = []
         self._d1 = 0
         self._d2 = 0
@@ -31,10 +41,10 @@ class Si():
         
         
         for ring in ring_list:
-            ring_pos.append(ring.get_location())
+            ring_pos.append(ring.get_nm_location())
             
         nearest = NearestNeighbors(n_neighbors=3, algorithm='ball_tree').fit(ring_pos)
-        dist, ind = nearest.kneighbors([self.get_location()])
+        dist, ind = nearest.kneighbors([self.get_nm_location()])
         for i in range(len(ind[0])):
             self._rings.append(ring_list[ind[0][i]])
         
@@ -53,9 +63,27 @@ class Si():
         print("size: ", len(self._rings))"""
         self._findClosestThree(ring_list, x_max, y_max, edge_buffer)
 
-    def get_location(self):
-        """ Returns the (x, y, z) of the atom. """
+    def get_nm_location(self):
+        """ Returns the location in (x, y, z) form. Units are nm. """
+        return self._nm_location
+    
+    def get_pix_location(self):
+        """ Returns the location in (x, y, z) form. Units are Pixels"""
         return self._location
+    
+    def find_nm_location(self, nm_dim, im_width, im_height):
+        """ Finds the coordinates in nm when the pixel coordinates are 
+        known. """
+        scale = (nm_dim[0]/im_width)
+        for i in range(3):
+            self._nm_location[i] = scale * self._pixels_location[i]
+
+    def find_pix_location(self, nm_dim, im_width, im_height):
+        """ Finds the coordinates in pixels when the nm coordinates are 
+        known. """
+        scale = (im_width/nm_dim[0])
+        for i in range(3):
+            self._pixel_location[i] = scale * self._location[i]
 
     def get_rings(self):
         """ Returns the list of rings bordering the atom. """
@@ -64,8 +92,8 @@ class Si():
     def is_edge(self, max_x, max_y, edge_buffer):
         """ Determines if this Si atom is on the edge of the image
             returns true if so, false otherwise. """
-        x = self.get_location()[0]
-        y = self.get_location()[1]
+        x = self.get_nm_location()[0]
+        y = self.get_nm_location()[1]
         d = edge_buffer
         return x < d or x > max_x - d or y < d or y > max_y - d
 
@@ -84,8 +112,8 @@ class Si():
         distance = 100000000000000000000
         answers = []
         for i in range(len(ring_list)):
-            c1 = ring_list[i].get_location()
-            c2 = self.get_location()
+            c1 = ring_list[i].get_nm_location()
+            c2 = self.get_nm_location()
             
             # Checks if the calculate distance is less than the current
             # smallest distance. If so, resets the answer list and adds
@@ -110,8 +138,8 @@ class Si():
         distance = 100000000000000000000
         answers = []
         for i in range(len(ring_list)):
-            c1 = ring_list[i].get_location()
-            c2 = self.get_location()
+            c1 = ring_list[i].get_nm_location()
+            c2 = self.get_nm_location()
             dist_2 = get_distance(c1, c2)
             if dist_2 < distance and dist_2 > self._d1:
                 answers = []
@@ -131,8 +159,8 @@ class Si():
         distance = 100000000000000000000
         answers = []
         for i in range(len(ring_list)):
-            c1 = ring_list[i].get_location()
-            c2 = self.get_location()
+            c1 = ring_list[i].get_nm_location()
+            c2 = self.get_nm_location()
             dist_2 = get_distance(c1, c2)
             if dist_2 < distance and dist_2 > self._d2:
                 answers = []
@@ -149,8 +177,11 @@ class Si():
 
 class ring_center():
     """ Contains the location of the ring center, and the type of ring
-        (number of members). Objects should always be constructed using the nm 
-        coordinates.  Nanometers is the assumed unit."""
+        (number of members). Objects do not automatically calculate their
+        locations if you do not tell them to. NOTE: The main functionality is 
+        done in nanometers.  Pixel locations are held on to so they can be easy
+        to grab, but, if you start calling complex methods with pixel 
+        dimensions, you're going to have a bad time. """
 
     def __init__(self, ring_type, x, y, z, unit):
         """ Constructor. """
