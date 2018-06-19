@@ -1,1 +1,0 @@
-# Silica-Coding-Project
