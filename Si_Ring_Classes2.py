@@ -243,7 +243,7 @@ class STM():
     Image Dimensions (pixels), sample dimensions (nm), scale, number of holes,
     and coordinates of those holes."""
 
-    def __init__(self, filename, im_dim, sample_dim, num_holes):
+    def __init__(self, filename, im_dim, sample_dim, num_holes, xyz_file):
         """ Constructor. """
         self._filename = filename
         self._im_dim = im_dim  # [image width, image height] (pixels)
@@ -251,6 +251,7 @@ class STM():
         self._scale = im_dim[0] / sample_dim[0]  # ratio pixels/nm
         self._num_holes = num_holes
         self._hole_coords = []
+        self._xyz_file = xyz_file
 
     def get_filename(self):
         return self._filename
@@ -269,6 +270,22 @@ class STM():
 
     def get_hole_coords(self):
         return self._hole_coords
+
+    def get_centers_from_xyz(self):
+        """ Uses xyz file to return list of center objects. """
+        centers = []
+        with open(self._xyz_file, encoding='utf-8') as f:
+            file_lines = f.readlines()
+
+        file_lines = [x.strip() for x in file_lines]
+        for line in file_lines:
+            split_line = line.split(" ")
+            center = ring_center(int(split_line[0]), float(split_line[1]) * 10,
+                                 float(split_line[2]) * 10,
+                                 float(split_line[3]) * 10, 'nm')
+            centers.append(center)
+
+        return centers
 
 
 def main():
