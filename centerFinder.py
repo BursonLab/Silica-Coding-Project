@@ -40,18 +40,13 @@ else:
     from tkinter import messagebox
 
 
-
+""" Globals """
 light_centers = False
-
-# 170908_SiO2@RuVII_STM110_det (27.4x11.5).jpg
-
 save_figures = False
-
 # Colors for each of the ring numbers
 # DSW edit 5/31/18: made 9 member brown to match PRL
-colors = [[178, 112, 248], [75, 176, 246], [67, 196, 127],
+COLORS = [[178, 112, 248], [75, 176, 246], [67, 196, 127],
           [249, 222, 62], [249, 76, 62], [147, 73, 0]]
-
 scaling_factor = 1
 
 # Sets up the Tk window
@@ -300,11 +295,11 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         # threshold -> decrease to detect less intense rings
         # overlap -> fraction of the blobs that are allowed to overlap with each other
 
-        #blobs = feature.blob_dog(grey_inv, min_sigma=0.03, max_sigma=30, sigma_ratio=2.8, threshold=0.8, overlap=0.5)
+        # blobs = feature.blob_dog(grey_inv, min_sigma=0.03, max_sigma=30, sigma_ratio=2.8, threshold=0.8, overlap=0.5)
         blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=15, sigma_ratio=2.8, threshold=0.5, overlap=0.3)
         centers = getBlobCenters(blobs)
 
-        #Find the average distance to closest neighbor
+        # Find the average distance to closest neighbor
         c_dist, c_ind = getNearestNeighbors(centers, centers, 2)
         avg_closest = numpy.median(c_dist[:][1])
         num_iter = 2
@@ -465,7 +460,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             image[r_out, c_out] = [0, 0, 0]
 
             # Assign appropriate colors to center coordinates
-            image[rr, cc] = colors[ring_size[i]-4]
+            image[rr, cc] = COLORS[ring_size[i]-4]
 
     plotRingCenters(image, ring_size, center_coord, average_closest)
 
