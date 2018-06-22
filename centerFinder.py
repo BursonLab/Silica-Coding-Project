@@ -159,7 +159,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
     # Convert coordinates based on the dimensions of the image
     def pixelsToNm(pixel_coord, nm_dim, im_width, im_height):
-        scale = (nm_dim[0] / im_width)
+        scale = nm_dim[0] / im_width
         return [pixel_coord[0] * scale, pixel_coord[1] * scale]
 
     def nmToPixels(nm_coord, nm_dim, im_width, im_height):
@@ -167,7 +167,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         return [int(nm_coord[0] * scale), int(nm_coord[1] * scale)]
 
     def pixelDistToNm(dist, nm_dim, im_width, im_height):
-        scale = (nm_dim[0] / im_width)
+        scale = nm_dim[0] / im_width
         return dist * scale
 
     def importAndScale(filename):
@@ -311,7 +311,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
         for i in range(num_iter):
             #Blackout regions around already found ring centers
-            #T ODO: Possibly look into scaling this based on average closest
+            #TO DO: Possibly look into scaling this based on average closest
             average_thresh = 1.6 #2.1#1.6 #1.92
 
             plotCirclesOnImage(grey_inv, centers, avg_closest*average_thresh, 0)
@@ -481,50 +481,45 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
     def distance(position1, position2):
         """finds the distance between two atoms"""
-        return math.sqrt(math.pow(position1[0] - position2[0], 2) +
-                     math.pow(position1[1] - position2[1], 2) +
-                     math.pow(position1[2] - position2[2], 2))
+        return math.sqrt((position1[0] - position2[0]) ** 2 +
+                         (position1[1] - position2[1]) ** 2 +
+                         (position1[2] - position2[2]) ** 2)
 
 
     def dists(positions, dist):
         """finds if a triplet could have an Si atom between them"""
 
-        # if there were not enough close to make a triplet, return none
-        if len(positions) < 3:
-            return[""]
-        # if there is a triplet and they are close enough to have a Si,
-        # return the triplet, else return blank
+        # If there is a triplet close enough to have a Si, return the triplet
         if len(positions) == 3:
             if distance(positions[1], positions[2]) <= dist:
                 return positions
-            else:
-                return[""]
-        numbers = []
+        
+        # If there are more than 2 close enough to have a Si between them, find
+        # the one that could not be used given the other two
+        if len(positions) > 3:
+            numbers = []
+            for i in range(len(positions)):
+                numbers.append(0)
+            for i in range(1, len(positions) - 1):
+                for j in range(1, len(positions) - i):
+                    # If two positions are not close enough, add a counter to both
+                    if distance(positions[i], positions[i + j]) > dist:
+                        numbers[i] += 1
+                        numbers[i + j] += 1
+                    # If they are close enough, remove a counter from both
+                    else:
+                        numbers[i] -= 1
+                        numbers[i + j] -= 1
 
-        # if there are more then 2 close enough to have a Si between them, find
-        # the one that could not given the other two
-        for i in range(len(positions)):
-            numbers.append(0)
-        for i in range(1, len(positions) - 1):
-            for j in range(1, len(positions) - i):
-                # if two positions are not close enough, add a counter to both.
-                # If they are close enough, remove a counter from both
-                if distance(positions[i], positions[i + j]) > dist:
-                    numbers[i] += 1
-                    numbers[i + j] += 1
-                else:
-                    numbers[i] -= 1
-                    numbers[i + j] -= 1
+            # Remove the one with the most counters
+            del positions[numbers.index(max(numbers))]
+            
+            # If close enough, return triplet
+            if distance(positions[1], positions[2]) <= dist:
+                return positions
 
-        # removetheonewiththemostcounters
-        del positions[numbers.index(max(numbers))]
-
-        # if these still are not close enough to have a triplet between them,
-        # return none. If they are close enough, return the new triplet
-        if distance(positions[1], positions[2]) <= dist:
-            return positions
-        else:
-            return[""]
+        # If they were not enough close to make a triplet, return none
+        return[""]
 
     def triarea(p1, p2, p3):
         """finds the area of triangle"""
@@ -548,10 +543,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     def si_finder(o_pos):
         """finds the position of a Si given a triplet of oxygen"""
 
-        # characteristic distance
-        dist = 1.6 * math.pow(10, - 1)
+        # Characteristic distance
+        dist = 1.6 * 0.1
 
-        # sets up the translation to happen around a basepoint(the first point
+        # Sets up the translation to happen around a basepoint(the first point
         # in the positions)
         trans = [[0, 0, 0], [o_pos[1][0] - o_pos[0][0],
                              o_pos[1][1] - o_pos[0][1],
@@ -629,12 +624,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             for j in range(1, len(o_pos) - i):
                 # if the x position is less than the possible distance between two
                 #  oxygenatoms(variableinclusionradius)
-                if abs(o_pos[i][0] - o_pos[i + j][0]) <= \
-                        3.45 * math.pow(10, - 1):
+                if abs(o_pos[i][0] - o_pos[i + j][0]) <= 3.45 * 0.1:
                     # if the distance between the two oxygens is less than the
                     #  characteristic distance(variable inclusion radius)
-                    if distance(o_pos[i], o_pos[i + j]) <= \
-                            3.45 * math.pow(10, - 1):
+                    if distance(o_pos[i], o_pos[i + j]) <= 3.45 * 0.1:
                         found[i].append(o_pos[i + j])
             found.append([""])
 
