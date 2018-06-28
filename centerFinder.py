@@ -51,6 +51,7 @@ save_figures = False
 # DSW edit 5/31/18: made 9 member brown to match PRL
 colors = [[178, 112, 248], [75, 176, 246], [67, 196, 127],
           [249, 222, 62], [249, 76, 62], [147, 73, 0]]
+colorsHex = ['#B270F8', '#4BB0F6', '#43C47F', '#F9DE3E', '#F94C3E', '#934900']
 
 scaling_factor = 1
 
@@ -1154,7 +1155,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 # Plots the mid point of the bin vs. percs of each ring size
                 for i in range(len(size_perc)):
                     plt.plot(bin_mids, size_perc[i],
-                             label=str(i + 4) + ' MR')
+                             label=str(i + 4) + ' MR', color=colorsHex[i])
 
                 # Adds a legend to the plot
                 plt.legend(loc=0, ncol=2)
