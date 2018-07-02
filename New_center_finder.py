@@ -178,10 +178,30 @@ class Image():
 
         self._holes = Holes(self._num_holes, self._grey, self._im_dim, self)
 
-        self._rings = Rings(self._num_holes, self._xyz_import, self._xyz_file,
-                            self._grey_inv, self)
-            
+        self._hole_coords = self._hole.returnHoleCoords()
 
+        self._rings = Rings(self._num_holes, self._hole_coords, self._im_dim,
+                            self._xyz_import, self._xyz_file, self._grey_inv, self)
+
+    def nmToPixels(self, nm_coord):
+        """ Converts a set of nm coordinates into pixel coordinates """
+        return [int(nm_coord[0] * self._scale), int(nm_coord[1] * self._scale)]
+    
+    
+    def pixelsToNm(self, pixel_coord):
+        """ Converts a set of pixel coordinates into nm coordinates """
+        return [pixel_coord[0] / self._scale, pixel_coord[1] / self._scale]
+    
+    
+    def pixelDistToNm(self, dist):
+        """Converts a distance in pixels into a distance in nm """
+        return dist / self._scale
+    
+    
+    def returnHoleImage(self):
+        return self._hole.returnHoleImage()
+    
+    
     def importAndScale(self):
         """ Imports and scales the image by a given scaling factor """
         
@@ -205,27 +225,6 @@ class Image():
             self._grey_inv = self._grey
         else:
             self._grey_inv = util.invert(self._grey)
-    
-    
-    def nmToPixels(self, nm_coord):
-        """ Converts a set of nm coordinates into pixel coordinates """
-        return [int(nm_coord[0] * self._scale), int(nm_coord[1] * self._scale)]
-    
-    
-    def pixelsToNm(self, pixel_coord):
-        """ Converts a set of pixel coordinates into nm coordinates """
-        return [pixel_coord[0] / self._scale, pixel_coord[1] / self._scale]
-    
-    
-    def pixelDistToNm(self, dist):
-        """Converts a distance in pixels into a distance in nm """
-        return dist / self._scale
-    
-    
-    def returnHoleImage(self):
-        """ Returns the mask image of the hole """
-        
-        return self._hole.returnHoleImage()
     
     
     def getNearestNeighbors(self, base_coords, search_coords, num_neighbors):
@@ -262,10 +261,22 @@ class Holes():
         self._num_holes = num_holes
         self._grey = grey  # Grey scale image
         self._im_dim = image_dim # (image height, image width) (pixels)
-        self._im_class = image_class
+        self._image = image_class
         
-        self._hole_coords = self.getHoleCoords()
+        self._hole_coords = self.getHoleCoords()  # In pixels
         self._hole_image = self.getHoleImage()  # Mask image of holes
+        
+        self._hole_nm_coords = []  # In nm
+        for coord in self._hole_coords:
+            self._hole_nm_coords.append(self._image.pixelsToNm(coord))
+        
+    
+    def returnHoleCoords(self):
+        return self._hole_coords
+    
+    
+    def returnHoleImage(self):
+        return self._hole_image
     
     
     def getHoleCoords(self):
@@ -317,22 +328,18 @@ class Holes():
             hole_image[coord[1], coord[0]] = 1
 
         return ndi.binary_fill_holes(morphology.binary_closing(hole_image))
-    
-    
-    def returnHoleImage(self):
-        """ Returns the mask image of the hole """
-        
-        return self._hole_image
-
 
 
 class Rings():
-    """ A class delaying with interpreting the rings within the STM image """
+    """ A class dealing with interpreting the rings within the STM image """
 
-    def __init__(self, num_holes, xyz_import, xyz_file, grey_inv, image_class):
+    def __init__(self, num_holes, hole_coords, image_dimensions, xyz_import, xyz_file,
+                 grey_inv, image_class):
         """ Constructor """
         
         self._num_holes = num_holes
+        self._hole_coords = hole_coords
+        self._im_dim = image_dimensions
         self._xyz_import = xyz_import
         self._xyz_file = xyz_file
         self._grey_inv = grey_inv
@@ -342,8 +349,13 @@ class Rings():
         if not self._xyz_import:
             self._imageblackOutHoles(self._image.returnHoleImage())
             self._centers = self.getCentersFromImage()
+        # Else, retrieve them from XYZ file
         else:
             self._centers = self.getCentersFromXYZ()
+        
+        # Determine each center's distance from the hole(s), ring size, and
+        # ring center coordinate and keep in list attributes
+        self.centerInfo()
     
     
     def blackOutHoles(self, holes):
@@ -426,7 +438,106 @@ class Rings():
             centers.append(pixel_coord)
 
         return centers
+    
+    
+    def centerInfo(self):
+        """ Returns several lists, including the distance to hole (nm),
+        ring sizes, and ring center coordinates with respect to each center """
 
+        # List of each center's ring size/type
+        self._ring_sizes = []
+        
+        # List of each center's ring's center coordinates
+        self._center_coords = []
+        
+        # List of each center's distance from the hole(s) in nm
+        self._hole_dists = []
+        
+        # Threshold for the maximum distance two centers can be apart to be concidered neighbors
+        self._neighbor_thresh = 1.48
+        
+        exclude_thresh = 1.9
+        
+        # Get distances and indices of 9 nearest neighbors to every center
+        distances, indices = self._image.getNearestNeighbors(self._centers,
+                                                             self._centers, 10)
+        
+        # Find the average distance to closest neighbor
+        c_dist, c_ind = self._image.getNearestNeighbors(self._centers, self._centers, 2)
+        self._average_closest = numpy.median(c_dist[:][1])
+        
+        # Gets the distances from every center to the nearest point on the edge of a hole
+        if self._num_holes > 0:
+            hole_distances, hole_inds = self._image.getNearestNeighbors(self._hole_coords,
+                                                                        self._centers, 2)
+
+        for k in range(len(distances)):
+            num_neighbors, percent_visible = self.findRingSizes(k, distances[k])
+            
+            # Scales num neighbors to be as if all ring neighbors were visible
+            scaled_num_neighbors = int(num_neighbors * percent_visible)
+            
+            # Coordinate of center's ring center
+            center_coord = self.findCenterCoord(k, num_neighbors, indices)
+            
+            # Distance from hole(s) to center
+            if self._sum_holes > 0:
+                hole_dist = self.hole_distances[k][1]
+            else:
+                hole_dist = 2 * self._exclude_thresh * self._average_closest
+                
+            # Convert the pixel distance into nm
+            hole_nm_dist = self._image.pixelDistToNm(hole_dist)
+
+            # If all numbers fits the needed criteria
+            if 4 <= scaled_num_neighbors <= 9 and percent_visible < 1.2 and\
+            hole_dist > exclude_thresh * self._average_closest:
+                self._ring_sizes.append(scaled_num_neighbors)
+                self._center_coords.append(center_coord)
+                self._hole_dists.append(hole_nm_dist)
+    
+    
+    def findRingSizes(self, k, n_dists):
+        """ Determine the ring size by looking at the number of nearest
+            neighbors it has """
+
+        # Averages the distances to closest 4 centers and multiplies by a
+        # threshold to get the max distance for something to be a neighbor
+        max_dist = numpy.mean(n_dists[1:5]) * self._neighbor_thresh
+
+        # Determines how many of the neighbors are within the max distance
+        num_neighbors = 9
+        for i in range(4,10):
+            if n_dists[i] > max_dist:
+                num_neighbors = i - 1
+                break
+
+        r_full, c_full = draw.circle(self._centers[k][1], self._centers[k][0],
+                                     max_dist)
+        r_bound, c_bound = draw.circle(self._centers[k][1], self._centers[k][0],
+                                       max_dist, shape=self._im_dim)
+
+        # Percentage of the ring neighbors that are visible in the window
+        percent_visible = len(r_full) / len(r_bound)
+            
+        return num_neighbors, percent_visible
+    
+    
+    def findCenterCoord(self, k, num_neighbors, indices):
+        """ Determine the coordinates of each center's ring """
+        
+        nearest_centers = []
+        for i in range(1, num_neighbors+1):
+            nearest_centers.append(self._centers[indices[k][i]][:])
+
+        #Calculates the centroid of neighboring centers
+        x = [p[0] for p in nearest_centers]
+        y = [p[1] for p in nearest_centers]
+        centroid = (sum(x) / len(nearest_centers), sum(y) / len(nearest_centers))
+        
+        return [(self._centers[k][0] + centroid[0]) / 2,
+                (self._centers[k][1] + centroid[1]) / 2]
+    
 
 
 def main():
