@@ -198,6 +198,13 @@ class Image():
         return dist / self._scale
     
     
+    def distance(self, position1, position2):
+        """ Returns the distance between two atoms """
+        return math.sqrt((position1[0] - position2[0]) ** 2 +
+                         (position1[1] - position2[1]) ** 2 +
+                         (position1[2] - position2[2]) ** 2)
+    
+    
     def returnHoleImage(self):
         return self._hole.returnHoleImage()
     
@@ -249,6 +256,25 @@ class Image():
             for coord in coords:
                 rr, cc = draw.circle(coord[0], coord[1], radius, shape=self._im_dim)
                 image[rr, cc] = color
+    
+    
+    def plotRingCenters(self, ring_size, center_coords, average_closest):
+        """ Plots circles on image of the correct color for the ring size """
+        
+        for i in range(len(ring_size)):
+            # Get circle coordinates for outlines and actual circles for centers
+            r_out, c_out = draw.circle(center_coords[i][1], center_coords[i][0],
+                                       int(average_closest / 3) + 3,
+                                       shape=self._im_dim)
+            rr, cc = draw.circle(center_coords[i][1], center_coords[i][0],
+                                 int(average_closest / 3),
+                                 shape=self._im_dim)
+
+            # Plot outlines
+            self._image[r_out, c_out] = [0, 0, 0]
+
+            # Assign appropriate colors to center coordinates
+            self._image[rr, cc] = COLORS[ring_size[i]-4]
     
     
 
@@ -356,7 +382,11 @@ class Rings():
         # Determine each center's distance from the hole(s), ring size, and
         # ring center coordinate and keep in list attributes
         self.centerInfo()
-    
+        
+        # Plot the rings on the image
+        self._image.plotRingCenters(self._ring_sizes, self._center_coords,
+                                    self._average_closest)
+        
     
     def blackOutHoles(self, holes):
         """ Black out the holes in the greyscale image so no centers will be
