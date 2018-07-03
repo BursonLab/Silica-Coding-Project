@@ -484,42 +484,37 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     def dists(positions, dist):
         """finds if a triplet could have an Si atom between them"""
 
-        # if there were not enough close to make a triplet, return none
-        if len(positions) < 3:
-            return[""]
-        # if there is a triplet and they are close enough to have a Si,
-        # return the triplet, else return blank
+        # If there is a triplet close enough to have a Si, return the triplet
         if len(positions) == 3:
             if distance(positions[1], positions[2]) <= dist:
                 return positions
-            else:
-                return[""]
-        numbers = []
+        
+        # If there are more than 2 close enough to have a Si between them, find
+        # the one that could not be used given the other two
+        if len(positions) > 3:
+            numbers = []
+            for i in range(len(positions)):
+                numbers.append(0)
+            for i in range(1, len(positions) - 1):
+                for j in range(1, len(positions) - i):
+                    # If two positions are not close enough, add a counter to both
+                    if distance(positions[i], positions[i + j]) > dist:
+                        numbers[i] += 1
+                        numbers[i + j] += 1
+                    # If they are close enough, remove a counter from both
+                    else:
+                        numbers[i] -= 1
+                        numbers[i + j] -= 1
 
-        # if there are more then 2 close enough to have a Si between them, find
-        # the one that could not given the other two
-        for i in range(len(positions)):
-            numbers.append(0)
-        for i in range(1, len(positions) - 1):
-            for j in range(1, len(positions) - i):
-                # if two positions are not close enough, add a counter to both.
-                # If they are close enough, remove a counter from both
-                if distance(positions[i], positions[i + j]) > dist:
-                    numbers[i] += 1
-                    numbers[i + j] += 1
-                else:
-                    numbers[i] -= 1
-                    numbers[i + j] -= 1
+            # Remove the one with the most counters
+            del positions[numbers.index(max(numbers))]
+            
+            # If close enough, return triplet
+            if distance(positions[1], positions[2]) <= dist:
+                return positions
 
-        # removetheonewiththemostcounters
-        del positions[numbers.index(max(numbers))]
-
-        # if these still are not close enough to have a triplet between them,
-        # return none. If they are close enough, return the new triplet
-        if distance(positions[1], positions[2]) <= dist:
-            return positions
-        else:
-            return[""]
+        # If they were not enough close to make a triplet, return none
+        return[""]
 
     def triarea(p1, p2, p3):
         """finds the area of triangle"""

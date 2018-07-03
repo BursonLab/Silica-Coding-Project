@@ -10,7 +10,7 @@ import math
 import numpy
 import matplotlib
 
-matplotlib.use('TkAgg')
+# matplotlib.use('TkAgg')
 
 from skimage import io
 from skimage import feature
@@ -53,9 +53,9 @@ root = Tk.Tk()
 root.wm_title("Auto Ring Center Finder")
 
 
-class Startup():
+class UserInterface():
     """ A starting class that gathers the preliminary information inputted in
-        the user interface """
+        the user interface and deals with interactions with the user """
     
     def __init__(self):
         """ Constructor """
@@ -98,11 +98,11 @@ class Startup():
         self._xyz_import = Tk.IntVar()
         self._import_xyz_btn = Tk.Checkbutton(master=root, text='Import XYZ ',
                                       variable=self._xyz_import,
-                                      command=self.importXyz())
+                                      command=self.importXyz)
         self._import_xyz_btn.pack(side=Tk.TOP)
     
         # Continue button
-        self._continue_btn = Tk.Button(master=root, text='Continue', command=self.enterFilename())
+        self._continue_btn = Tk.Button(master=root, text='Continue', command=self.enterFilename)
         self._continue_btn.pack(side=Tk.TOP)
     
         # Keeps the window open and listens for events
@@ -116,7 +116,9 @@ class Startup():
         
 
     def importXyz(self):
-        if self._xyz_file:
+        """ Import XYZ data if available """
+                
+        if self._xyz_file.get():
             self._xyz_prompt.pack(side=Tk.TOP)
             self._xyz_entry.pack(side=Tk.TOP)
         else:
@@ -125,33 +127,154 @@ class Startup():
 
 
     def enterFilename(self):
-            """ Get Filename from text entry """
+        """ Get Filename from text entry """
+                
+        self._filename = self._filename.get()
     
-            try:
-                io.imread(self._filename)
+        try:
+            io.imread(self._filename)
     
-                # Destroy the entry UI
-                self._prompt.destroy()
-                self._filename_entry.destroy()
-                self._continue_btn.destroy()
-                self._width_prompt.destroy()
-                self._height_prompt.destroy()
-                self._width_entry.destroy()
-                self._height_entry.destroy()
-                self._holes_prompt.destroy()
-                self._holes_entry.destroy()
-                self._xyz_prompt.destroy()
-                self._xyz_entry.destroy()
-                self._import_xyz_btn.destroy()
-    
-                # Pass information on to the main class
-                Image(self._filename, self._width, self._height,
-                      self._num_holes, self._xyz_import, self._xyz_file)
+            # Destroy the entry UI
+            self._prompt.destroy()
+            self._filename_entry.destroy()
+            self._continue_btn.destroy()
+            self._width_prompt.destroy()
+            self._height_prompt.destroy()
+            self._width_entry.destroy()
+            self._height_entry.destroy()
+            self._holes_prompt.destroy()
+            self._holes_entry.destroy()
+            self._xyz_prompt.destroy()
+            self._xyz_entry.destroy()
+            self._import_xyz_btn.destroy()
+        
+            # Pass information on to the main class
+            self._image = Image(self._filename, self._width.get(), self._height.get(),
+                                self._num_holes.get(), self._xyz_import.get(),
+                                self._xyz_file.get(), self)
 
-            except ValueError:
-                messagebox.showerror("Error", "Invalid dimensions and/or number of holes")
-            except FileNotFoundError:
-                messagebox.showerror("Error", "A file could not be found with that filename")
+        except ValueError:
+            messagebox.showerror("Error", "Invalid dimensions and/or number of holes")
+        except FileNotFoundError:
+            messagebox.showerror("Error", "A file could not be found with that filename")
+                
+        
+    def createWindow(self, image, centers):
+        """ Create and manage the secondary window allowing for manual image
+            editing and advancement to the final display """
+        
+        self._image_file = image
+        self._centers = centers
+        
+        print()
+        print("Launched Auto Ring Finder")
+        fig = Figure(figsize=(10, 6), dpi=100)
+        self._ax = fig.add_subplot(111)
+        self._ax.imshow(self._image_file)
+
+        self._canvas = FigureCanvasTkAgg(fig, master=root)
+        self._canvas.draw()
+        self._canvas.get_tk_widget().pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
+
+        toolbar = NavigationToolbar2Tk(self._canvas, root)
+        toolbar.update()
+        self._canvas._tkcanvas.pack(side=Tk.TOP, fill=Tk.BOTH, expand=1)
+
+        self._cid = []
+
+        autoRingToggle = Tk.IntVar()
+        autoRingToggle.set(1)
+
+        binSizeTxt = Tk.StringVar()
+        
+        # EDITING BUTTON GUI CODE
+
+        addRingBtn = Tk.Button(master=root, text='Add Ring', command=self.ringAdd)
+        addRingBtn.pack(side=Tk.LEFT)
+
+        removeRingBtn = Tk.Button(master=root, text='Remove Ring',
+                                  command=self.ringRemove)
+        removeRingBtn.pack(side=Tk.LEFT)
+
+        moveRingBtn = Tk.Button(master=root, text='Move Ring',
+                                command=self.ringMove)
+        moveRingBtn.pack(side=Tk.LEFT)
+
+        autoRingChkBtn = Tk.Checkbutton(master=root, text='Autocorrect Rings',
+                                        variable=autoRingToggle)
+        autoRingChkBtn.pack(side=Tk.LEFT)
+        
+        saveBtn = Tk.Button(master=root, text='Save Image', command=self.saveImage)
+        saveBtn.pack(side=Tk.RIGHT)
+        
+        # Button to finish editing and move to exporting / plotting graphs
+        doneBtn = Tk.Button(master=root, text='Done Editing',
+                            command=self.doneEditing)
+        doneBtn.pack(side=Tk.RIGHT)
+    
+    """ METHODS FOR MANUALLY EDITING CENTERS """
+    
+    def replotImage(self):
+        """ Replot the image after editing """
+        
+        # Get a clean copy of the image
+        self._image_file = io.imread(self._filename)
+        
+        self._image.replotImage(self._image_file, self._centers)
+
+        self._ax.imshow(self._image_file)
+        self._canvas.draw()
+
+        for i in range(len(self._cid)):
+            self._canvas.mpl_disconnect(self._cid[i])
+    
+    
+    def ringAdd(self):
+        self._cid.append(self._canvas.mpl_connect('button_press_event', self.addCenter()))
+    
+    
+    def addCenter(self, event):
+        """ Add a center where the user clicked """
+        
+        self._centers.append([event.xdata, event.ydata])
+        self.replotImage()
+    
+    
+    def ringRemove(self):
+        self._cid.append(self._canvas.mpl_connect('button_press_event', self.removeCenter()))
+    
+    
+    def removeCenter(self, event):
+        """ Remove the nearest center to location of click event """
+        
+        min_dist = math.hypot(event.xdata - self._centers[0][0],
+                              event.ydata - self._centers[0][1])
+        match_ind = 0
+        for i in range(len(self._centers)):
+            cur_dist = math.hypot(event.xdata - self._centers[i][0],
+                                  event.ydata - self._centers[i][1])
+            if cur_dist < min_dist:
+                min_dist = cur_dist
+                match_ind = i
+
+        del self._centers[match_ind]
+
+        self.replotImage()
+    
+    
+    def ringMove(self):
+        self._cid.append(self._canvas.mpl_connect('button_press_event', self.moveCenter()))
+    
+    
+    def moveCenter(self, event):
+        pass
+    
+    def saveImage(self):
+        pass
+    
+    
+    def doneEditing(self):
+        pass
 
 
 
@@ -160,14 +283,16 @@ class Image():
         like filename, image dimensions (pixels), sample dimensions (nm),
         scale, number of holes, and coordinates of those holes."""
 
-    def __init__(self, filename, width, height, num_holes, xyz_import, xyz_file):
+    def __init__(self, filename, width, height, num_holes, xyz_import, xyz_file,
+                 user_interface):
         """ Constructor """
 
         self._filename = filename
-        self._sample_dim = [width, height]  # (nm)
-        self._num_holes = num_holes
+        self._sample_dim = [float(width), float(height)]  # (nm)
+        self._num_holes = int(num_holes)
         self._xyz_import = xyz_import
         self._xyz_file = xyz_file
+        self._user_interface = user_interface
         
         self._image = self.importAndScale()
         
@@ -176,12 +301,18 @@ class Image():
         self._im_dim = (len(self._grey), len(self._grey[0])) # (image height, image width) (pixels)
         self._scale = self._im_dim[1] / self._sample_dim[0]  # ratio pixels/nm
 
+        # Initialize the hole class
         self._holes = Holes(self._num_holes, self._grey, self._im_dim, self)
 
-        self._hole_coords = self._hole.returnHoleCoords()
+        self._hole_coords = self._holes.returnHoleCoords()
 
+        # Initialize the rings class
         self._rings = Rings(self._num_holes, self._hole_coords, self._im_dim,
                             self._xyz_import, self._xyz_file, self._grey_inv, self)
+        
+        # Return to the user interface for more interactions
+        self._user_interface.createWindow(self._image, self._rings.returnCenters())
+        
 
     def nmToPixels(self, nm_coord):
         """ Converts a set of nm coordinates into pixel coordinates """
@@ -206,7 +337,7 @@ class Image():
     
     
     def returnHoleImage(self):
-        return self._hole.returnHoleImage()
+        return self._holes.returnHoleImage()
     
     
     def importAndScale(self):
@@ -275,6 +406,16 @@ class Image():
 
             # Assign appropriate colors to center coordinates
             self._image[rr, cc] = COLORS[ring_size[i]-4]
+    
+    
+    def replotImage(self, image, centers):
+        """ Replots the image after editing """
+        
+        self._image = image
+        self._rings.updateCenters(centers)
+        
+        # Rerun ring determination with new centers and replot the new image
+        self._rings.centerInfo()
     
     
 
@@ -356,6 +497,7 @@ class Holes():
         return ndi.binary_fill_holes(morphology.binary_closing(hole_image))
 
 
+
 class Rings():
     """ A class dealing with interpreting the rings within the STM image """
 
@@ -373,20 +515,25 @@ class Rings():
         
         # If not importing an XYZ file, identify Si centers on greyscale image
         if not self._xyz_import:
-            self._imageblackOutHoles(self._image.returnHoleImage())
+            self.blackOutHoles(self._image.returnHoleImage())
             self._centers = self.getCentersFromImage()
         # Else, retrieve them from XYZ file
         else:
             self._centers = self.getCentersFromXYZ()
         
         # Determine each center's distance from the hole(s), ring size, and
-        # ring center coordinate and keep in list attributes
+        # ring center coordinate and keep in list attributes. Then plot rings
         self.centerInfo()
         
-        # Plot the rings on the image
-        self._image.plotRingCenters(self._ring_sizes, self._center_coords,
-                                    self._average_closest)
-        
+    
+    def returnCenters(self):
+        return self._centers
+    
+    
+    def updateCenters(self, new_centers):
+        """ Redefine the list of centers """
+        self._centers = new_centers
+    
     
     def blackOutHoles(self, holes):
         """ Black out the holes in the greyscale image so no centers will be
@@ -471,7 +618,7 @@ class Rings():
     
     
     def centerInfo(self):
-        """ Returns several lists, including the distance to hole (nm),
+        """ Assigns several lists, including the distance to hole (nm),
         ring sizes, and ring center coordinates with respect to each center """
 
         # List of each center's ring size/type
@@ -494,7 +641,7 @@ class Rings():
         
         # Find the average distance to closest neighbor
         c_dist, c_ind = self._image.getNearestNeighbors(self._centers, self._centers, 2)
-        self._average_closest = numpy.median(c_dist[:][1])
+        average_closest = numpy.median(c_dist[:][1])
         
         # Gets the distances from every center to the nearest point on the edge of a hole
         if self._num_holes > 0:
@@ -511,20 +658,24 @@ class Rings():
             center_coord = self.findCenterCoord(k, num_neighbors, indices)
             
             # Distance from hole(s) to center
-            if self._sum_holes > 0:
-                hole_dist = self.hole_distances[k][1]
+            if self._num_holes > 0:
+                hole_dist = hole_distances[k][1]
             else:
-                hole_dist = 2 * self._exclude_thresh * self._average_closest
+                hole_dist = 2 * self._exclude_thresh * average_closest
                 
             # Convert the pixel distance into nm
             hole_nm_dist = self._image.pixelDistToNm(hole_dist)
 
             # If all numbers fits the needed criteria
             if 4 <= scaled_num_neighbors <= 9 and percent_visible < 1.2 and\
-            hole_dist > exclude_thresh * self._average_closest:
+            hole_dist > exclude_thresh * average_closest:
                 self._ring_sizes.append(scaled_num_neighbors)
                 self._center_coords.append(center_coord)
                 self._hole_dists.append(hole_nm_dist)
+        
+        # Plot the rings on the image
+        self._image.plotRingCenters(self._ring_sizes, self._center_coords,
+                                    average_closest)
     
     
     def findRingSizes(self, k, n_dists):
@@ -573,7 +724,7 @@ class Rings():
 def main():
     """ Initializes necessary objects """
     
-    Startup() # Create the starting window and process initial information
+    UserInterface() # Create the starting window and process initial information
     
 
 
