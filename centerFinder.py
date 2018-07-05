@@ -813,7 +813,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                        points[tri.simplices][i][0][1]) / 2.00
             o_locations.append([midptx3, midpty3, 0])
 
-        o_locations.sort
+        # o_locations.sort
         o_locations = sorted(o_locations)
 
         remove = []

@@ -10,7 +10,7 @@ import math
 import numpy
 import matplotlib
 
-# matplotlib.use('TkAgg')
+matplotlib.use('TkAgg')
 
 from skimage import io
 from skimage import feature
@@ -189,28 +189,29 @@ class UserInterface():
         
         # EDITING BUTTON GUI CODE
 
-        addRingBtn = Tk.Button(master=root, text='Add Ring', command=self.ringAdd)
-        addRingBtn.pack(side=Tk.LEFT)
+        self._addRingBtn = Tk.Button(master=root, text='Add Ring', command=self.ringAdd)
+        self._addRingBtn.pack(side=Tk.LEFT)
 
-        removeRingBtn = Tk.Button(master=root, text='Remove Ring',
-                                  command=self.ringRemove)
-        removeRingBtn.pack(side=Tk.LEFT)
+        self._removeRingBtn = Tk.Button(master=root, text='Remove Ring',
+                                        command=self.ringRemove)
+        self._removeRingBtn.pack(side=Tk.LEFT)
 
-        moveRingBtn = Tk.Button(master=root, text='Move Ring',
-                                command=self.ringMove)
-        moveRingBtn.pack(side=Tk.LEFT)
+        self._moveRingBtn = Tk.Button(master=root, text='Move Ring',
+                                      command=self.ringMove)
+        self._moveRingBtn.pack(side=Tk.LEFT)
 
-        autoRingChkBtn = Tk.Checkbutton(master=root, text='Autocorrect Rings',
-                                        variable=autoRingToggle)
-        autoRingChkBtn.pack(side=Tk.LEFT)
+        self._autoRingChkBtn = Tk.Checkbutton(master=root, text='Autocorrect Rings',
+                                              variable=autoRingToggle)
+        self._autoRingChkBtn.pack(side=Tk.LEFT)
         
         saveBtn = Tk.Button(master=root, text='Save Image', command=self.saveImage)
         saveBtn.pack(side=Tk.RIGHT)
         
         # Button to finish editing and move to exporting / plotting graphs
-        doneBtn = Tk.Button(master=root, text='Done Editing',
-                            command=self.doneEditing)
-        doneBtn.pack(side=Tk.RIGHT)
+        self._doneBtn = Tk.Button(master=root, text='Done Editing',
+                                  command=self.doneEditing)
+        self._doneBtn.pack(side=Tk.RIGHT)
+    
     
     """ METHODS FOR MANUALLY EDITING CENTERS """
     
@@ -244,9 +245,10 @@ class UserInterface():
         self._cid.append(self._canvas.mpl_connect('button_press_event', self.removeCenter()))
     
     
-    def removeCenter(self, event):
+    def removeCenter(self, event, move_center=False):
         """ Remove the nearest center to location of click event """
         
+        # Identify the nearest center to location clicked
         min_dist = math.hypot(event.xdata - self._centers[0][0],
                               event.ydata - self._centers[0][1])
         match_ind = 0
@@ -259,7 +261,9 @@ class UserInterface():
 
         del self._centers[match_ind]
 
-        self.replotImage()
+        # Replot the image unless a new center needs to be added
+        if not move_center:
+            self.replotImage()
     
     
     def ringMove(self):
@@ -267,14 +271,35 @@ class UserInterface():
     
     
     def moveCenter(self, event):
-        pass
+        """ Remove the nearest center and add a new center """
+        
+        # Remove the nearest center
+        self.removeCenter(event, True)
+        
+        # Add a center in the location clicked
+        self.addCenter(event)
+    
     
     def saveImage(self):
-        pass
+        """ Saves the image """
+        
+        print("Saving image...")
+        io.imsave(self._filename[:-4] + 'plotted.jpg', self._image_file)
+        print("Image Saved")
     
     
     def doneEditing(self):
-        pass
+        """ Run the main program after done editing centers """
+        
+        # Destroy editing buttons
+        self._addRingBtn.destroy()
+        self._removeRingBtn.destroy()
+        self._moveRingBtn.destroy()
+        self._autoRingChkBtn.destroy()
+        self._doneBtn.destroy()
+        
+        # Plot silicon and oxygen positions onto image
+        self._image.getSiOPlot()
 
 
 
@@ -294,20 +319,21 @@ class Image():
         self._xyz_file = xyz_file
         self._user_interface = user_interface
         
-        self._image = self.importAndScale()
+        self._image = self.importAndScale()  # The actual image
+        
+        self._grey = ''  # Greyscale version of the image
+        self._grey_inv = ''  # Inverted version of grey
         
         self.grey()
         
         self._im_dim = (len(self._grey), len(self._grey[0])) # (image height, image width) (pixels)
-        self._scale = self._im_dim[1] / self._sample_dim[0]  # ratio pixels/nm
+        self._scale = self._im_dim[1] / self._sample_dim[0]  # Ratio pixels/nm
 
         # Initialize the hole class
         self._holes = Holes(self._num_holes, self._grey, self._im_dim, self)
 
-        self._hole_coords = self._holes.returnHoleCoords()
-
         # Initialize the rings class
-        self._rings = Rings(self._num_holes, self._hole_coords, self._im_dim,
+        self._rings = Rings(self._num_holes, self._holes, self._im_dim,
                             self._xyz_import, self._xyz_file, self._grey_inv, self)
         
         # Return to the user interface for more interactions
@@ -376,28 +402,31 @@ class Image():
         return dist, ind
     
     
-    def plotCirclesOnImage(self, image, coords, radius, color, reverse=False):
+    def plotCirclesOnImage(self, image, lst, radius, color, reverse=False):
         """ Plots circles of a given radius and color on a given image at given coordinates """
         if not reverse:
-            for coord in coords:
+            for center in lst:
+                coord = center.getCoords()
                 rr, cc = draw.circle(coord[1], coord[0], radius, shape=self._im_dim)
                 image[rr, cc] = color
         else:
-            # Same as above but coord reversed
-            for coord in coords:
+            # Same as above but coord reversed - deals with peak_cord not center objects
+             for coord in lst:
                 rr, cc = draw.circle(coord[0], coord[1], radius, shape=self._im_dim)
                 image[rr, cc] = color
     
     
-    def plotRingCenters(self, ring_size, center_coords, average_closest):
+    def plotRingCenters(self, center_objects, average_closest):
         """ Plots circles on image of the correct color for the ring size """
         
-        for i in range(len(ring_size)):
+        for i in range(len(center_objects)):
             # Get circle coordinates for outlines and actual circles for centers
-            r_out, c_out = draw.circle(center_coords[i][1], center_coords[i][0],
+            r_out, c_out = draw.circle(center_objects[i].getCenterCoord()[1],
+                                       center_objects[i].getCenterCoord()[0],
                                        int(average_closest / 3) + 3,
                                        shape=self._im_dim)
-            rr, cc = draw.circle(center_coords[i][1], center_coords[i][0],
+            rr, cc = draw.circle(center_objects[i].getCenterCoord()[1],
+                                 center_objects[i].getCenterCoord()[0],
                                  int(average_closest / 3),
                                  shape=self._im_dim)
 
@@ -405,7 +434,7 @@ class Image():
             self._image[r_out, c_out] = [0, 0, 0]
 
             # Assign appropriate colors to center coordinates
-            self._image[rr, cc] = COLORS[ring_size[i]-4]
+            self._image[rr, cc] = COLORS[center_objects[i].getRingSize() - 4]
     
     
     def replotImage(self, image, centers):
@@ -418,6 +447,12 @@ class Image():
         self._rings.centerInfo()
     
     
+    def getSiOPlot(self):
+        """ The main program after done editing centers """
+        
+        self._rings.getSiOPlot()
+        
+    
 
 class Holes():
     """ A class to keep track of hole related information """
@@ -427,7 +462,7 @@ class Holes():
         
         self._num_holes = num_holes
         self._grey = grey  # Grey scale image
-        self._im_dim = image_dim # (image height, image width) (pixels)
+        self._im_dim = image_dim  # (image height, image width) (pixels)
         self._image = image_class
         
         self._hole_coords = self.getHoleCoords()  # In pixels
@@ -438,7 +473,7 @@ class Holes():
             self._hole_nm_coords.append(self._image.pixelsToNm(coord))
         
     
-    def returnHoleCoords(self):
+    def getCoords(self):
         return self._hole_coords
     
     
@@ -501,25 +536,30 @@ class Holes():
 class Rings():
     """ A class dealing with interpreting the rings within the STM image """
 
-    def __init__(self, num_holes, hole_coords, image_dimensions, xyz_import, xyz_file,
+    def __init__(self, num_holes, hole_object, image_dimensions, xyz_import, xyz_file,
                  grey_inv, image_class):
         """ Constructor """
         
         self._num_holes = num_holes
-        self._hole_coords = hole_coords
+        self._holes = hole_object
         self._im_dim = image_dimensions
         self._xyz_import = xyz_import
         self._xyz_file = xyz_file
         self._grey_inv = grey_inv
         self._image = image_class
         
+        self._centers = []  # List of center objects
+        
         # If not importing an XYZ file, identify Si centers on greyscale image
         if not self._xyz_import:
-            self.blackOutHoles(self._image.returnHoleImage())
-            self._centers = self.getCentersFromImage()
+            self._peak_coord = self.blackOutHoles(self._image.returnHoleImage())
+            self.getCentersFromImage()
         # Else, retrieve them from XYZ file
         else:
-            self._centers = self.getCentersFromXYZ()
+            self.getCentersFromXYZ()
+        
+        # Threshold for the maximum distance two centers can be apart to be neighbors
+        self._neighbor_thresh = 1.48
         
         # Determine each center's distance from the hole(s), ring size, and
         # ring center coordinate and keep in list attributes. Then plot rings
@@ -542,7 +582,7 @@ class Rings():
         self._grey_inv = self._grey_inv * (1 - holes)
         self._grey_inv_copy = self._grey_inv
 
-        self._peak_coord = feature.peak_local_max(self._grey_inv, min_distance=24,threshold_rel=0.2)
+        return feature.peak_local_max(self._grey_inv, min_distance=24, threshold_rel=0.2)
         
     
     def getCentersFromImage(self):
@@ -551,9 +591,12 @@ class Rings():
         blobs = feature.blob_dog(self._grey_inv, min_sigma=0.07, max_sigma=15,
                                  sigma_ratio=2.8, threshold=0.5, overlap=0.3)
 
-        centers = self.getBlobCenters(blobs)
+        self.getBlobCenters(blobs)
         
         # Find the average distance to closest neighbor
+        centers = []
+        for center in self._centers:
+            centers.append(center.getCoords())
         c_dist, c_ind = self._image.getNearestNeighbors(centers, centers, 2)
         avg_closest = numpy.median(c_dist[:][1])
         num_iter = 2
@@ -563,13 +606,13 @@ class Rings():
             #TO DO: Possibly look into scaling this based on average closest
             average_thresh = 1.6
 
-            self._image.plotCirclesOnImage(self._grey_inv, centers, avg_closest*average_thresh, 0)
+            self._image.plotCirclesOnImage(self._grey_inv, self._centers, avg_closest*average_thresh, 0)
 
             #Find blobs that may be rings that have not been found on first pass
             blobs = numpy.concatenate((blobs, feature.blob_dog(self._grey_inv, min_sigma=0.08,
                                                               max_sigma=20, sigma_ratio=2.8,
                                                               threshold=0.8, overlap=0.3)))
-            centers = self.getBlobCenters(blobs)
+            self.getBlobCenters(blobs)
 
             self._image.plotCirclesOnImage(self._grey_inv_copy, self._peak_coord,
                                            avg_closest * average_thresh, 0, True)
@@ -577,9 +620,7 @@ class Rings():
             self._peak_coord = numpy.concatenate((self._peak_coord,
                                                   feature.peak_local_max(self._grey_inv_copy, 
                                                      min_distance=24, threshold_rel=0.2)))
-                
-        return centers
-    
+                    
     
     def getBlobCenters(self, blobs):
         """ Returns a list of the centers of the blobs """
@@ -591,19 +632,16 @@ class Rings():
         # threshold -> decrease to detect less intense rings
         # overlap -> fraction of the blobs that are allowed to overlap with each other
 
-        centers = []
+        self._centers = []  # Start with a clean list
         for blob in blobs:
             x_coord = int(blob[1])
             y_coord = int(blob[0])
-            centers.append([x_coord, y_coord])
-
-        return centers
+            self._centers.append(Center((x_coord, y_coord)))
     
     
     def getCentersFromXyz(self):
         """ Read the XYZ file to find the centers noted within """
         
-        centers = []
         with open(self._xyz_file, encoding='utf-8') as f:
             file_lines = f.readlines()
 
@@ -612,14 +650,13 @@ class Rings():
             split_line = line.split(" ")
             nm_coord = [float(split_line[1]), float(split_line[2])]
             pixel_coord = self._image.nmToPixels(nm_coord)
-            centers.append(pixel_coord)
-
-        return centers
+            self._centers.append(Center(pixel_coord))
     
     
     def centerInfo(self):
-        """ Assigns several lists, including the distance to hole (nm),
-        ring sizes, and ring center coordinates with respect to each center """
+        """ Assigns several attributes to each center, including the distance
+            to hole (nm), ring sizes, and ring center coordinates with respect
+            to each center """
 
         # List of each center's ring size/type
         self._ring_sizes = []
@@ -630,23 +667,24 @@ class Rings():
         # List of each center's distance from the hole(s) in nm
         self._hole_dists = []
         
-        # Threshold for the maximum distance two centers can be apart to be concidered neighbors
-        self._neighbor_thresh = 1.48
-        
         exclude_thresh = 1.9
         
+        # Make a current list of center locations
+        centers = []
+        for center in self._centers:
+            centers.append(center.getCoords())
+        
         # Get distances and indices of 9 nearest neighbors to every center
-        distances, indices = self._image.getNearestNeighbors(self._centers,
-                                                             self._centers, 10)
+        distances, indices = self._image.getNearestNeighbors(centers, centers, 10)
         
         # Find the average distance to closest neighbor
-        c_dist, c_ind = self._image.getNearestNeighbors(self._centers, self._centers, 2)
+        c_dist, c_ind = self._image.getNearestNeighbors(centers, centers, 2)
         average_closest = numpy.median(c_dist[:][1])
         
         # Gets the distances from every center to the nearest point on the edge of a hole
         if self._num_holes > 0:
-            hole_distances, hole_inds = self._image.getNearestNeighbors(self._hole_coords,
-                                                                        self._centers, 2)
+            hole_distances, hole_inds = self._image.getNearestNeighbors(self._holes.getCoords(),
+                                                                        centers, 2)
 
         for k in range(len(distances)):
             num_neighbors, percent_visible = self.findRingSizes(k, distances[k])
@@ -669,13 +707,23 @@ class Rings():
             # If all numbers fits the needed criteria
             if 4 <= scaled_num_neighbors <= 9 and percent_visible < 1.2 and\
             hole_dist > exclude_thresh * average_closest:
-                self._ring_sizes.append(scaled_num_neighbors)
-                self._center_coords.append(center_coord)
-                self._hole_dists.append(hole_nm_dist)
+                self._centers[k].assignRingSize(scaled_num_neighbors)
+                self._centers[k].assignCenterCoord(center_coord)
+                self._centers[k].assignHoleDist(hole_nm_dist)
         
+        # FIX THIS
+        new_centers = []
+        for center in self._centers:
+            if center.getCenterCoord():
+                new_centers.append(center)
+        
+        self._centers = new_centers
+        
+        for center in self._centers:
+            print(center.getCenterCoord())
+
         # Plot the rings on the image
-        self._image.plotRingCenters(self._ring_sizes, self._center_coords,
-                                    average_closest)
+        self._image.plotRingCenters(self._centers, average_closest)
     
     
     def findRingSizes(self, k, n_dists):
@@ -693,9 +741,10 @@ class Rings():
                 num_neighbors = i - 1
                 break
 
-        r_full, c_full = draw.circle(self._centers[k][1], self._centers[k][0],
-                                     max_dist)
-        r_bound, c_bound = draw.circle(self._centers[k][1], self._centers[k][0],
+        r_full, c_full = draw.circle(self._centers[k].getCoords()[1],
+                                     self._centers[k].getCoords()[0], max_dist)
+        r_bound, c_bound = draw.circle(self._centers[k].getCoords()[1],
+                                       self._centers[k].getCoords()[0],
                                        max_dist, shape=self._im_dim)
 
         # Percentage of the ring neighbors that are visible in the window
@@ -709,16 +758,88 @@ class Rings():
         
         nearest_centers = []
         for i in range(1, num_neighbors+1):
-            nearest_centers.append(self._centers[indices[k][i]][:])
+            nearest_centers.append(self._centers[indices[k][i]].getCoords()[:])
 
         #Calculates the centroid of neighboring centers
         x = [p[0] for p in nearest_centers]
         y = [p[1] for p in nearest_centers]
         centroid = (sum(x) / len(nearest_centers), sum(y) / len(nearest_centers))
         
-        return [(self._centers[k][0] + centroid[0]) / 2,
-                (self._centers[k][1] + centroid[1]) / 2]
+        return [(self._centers[k].getCoords()[0] + centroid[0]) / 2,
+                (self._centers[k].getCoords()[1] + centroid[1]) / 2]
     
+    
+    def getSiOPlot(self):
+        """ Obtain information necessary for locating Si and O atoms """
+
+        self.centerCoordsNm()
+        self.centersToObjects()
+        
+    
+    def centerCoordsNm(self):
+        """ Return the center coordinates in nm """
+        
+        self._center_coords_nm = []
+        
+        for coord in self._center_coords:
+            self._center_coords_nm.append(self._image.pixelsToNm(coord))
+    
+    
+    def centersToObjects(self, unit):
+        """ Converts list of centers to center objects """
+
+        self._center_obj_list = []
+    
+        for i in range(len(self._center_coords_nm)):
+            center = Si_Ring_Classes.ring_center(self._ring_sizes[i],
+                                                 self._center_coords_nm[i][0],
+                                                 self._center_coords_nm[i][1],
+                                                 0, 'nm')
+            self._center_obj_list.append(center)
+            
+
+
+class Center():
+    """ An object that represents each individual center and keeps track of its
+        information, such as its coordinates, ring size, and the distance
+        between it and the hole """
+
+    def __init__(self, coord):
+        """ Constructor """
+        
+        self._coord = coord
+        self._ring_size = ''
+        self._hole_dist = ''  # In nm
+        self._center_coord = ''
+        
+    
+    def getCoords(self):
+        return self._coord
+    
+    
+    def getRingSize(self):
+        return self._ring_size
+    
+    
+    def getHoleDist(self):
+        return self._hole_dist
+    
+    
+    def getCenterCoord(self):
+        return self._center_coord
+    
+    
+    def assignRingSize(self, ring_size):
+        self._ring_size = ring_size
+    
+    
+    def assignHoleDist(self, dist):
+        self._hole_dist = dist
+        
+    
+    def assignCenterCoord(self, coord):
+        self._center_coord = coord
+
 
 
 def main():
