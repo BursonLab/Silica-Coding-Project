@@ -185,7 +185,7 @@ class UserInterface():
         autoRingToggle = Tk.IntVar()
         autoRingToggle.set(1)
 
-        binSizeTxt = Tk.StringVar()
+        self._binSizeTxt = Tk.StringVar()
         
         # EDITING BUTTON GUI CODE
 
@@ -231,30 +231,30 @@ class UserInterface():
     
     
     def ringAdd(self):
-        self._cid.append(self._canvas.mpl_connect('button_press_event', self.addCenter()))
+        self._cid.append(self._canvas.mpl_connect('button_press_event', self.addCenter))
     
     
     def addCenter(self, event):
         """ Add a center where the user clicked """
         
-        self._centers.append([event.xdata, event.ydata])
+        self._centers.append(Center([event.xdata, event.ydata]))
         self.replotImage()
     
     
     def ringRemove(self):
-        self._cid.append(self._canvas.mpl_connect('button_press_event', self.removeCenter()))
+        self._cid.append(self._canvas.mpl_connect('button_press_event', self.removeCenter))
     
     
     def removeCenter(self, event, move_center=False):
         """ Remove the nearest center to location of click event """
         
         # Identify the nearest center to location clicked
-        min_dist = math.hypot(event.xdata - self._centers[0][0],
-                              event.ydata - self._centers[0][1])
+        min_dist = math.hypot(event.xdata - self._centers[0].getCoords()[0],
+                              event.ydata - self._centers[0].getCoords()[1])
         match_ind = 0
         for i in range(len(self._centers)):
-            cur_dist = math.hypot(event.xdata - self._centers[i][0],
-                                  event.ydata - self._centers[i][1])
+            cur_dist = math.hypot(event.xdata - self._centers[i].getCoords()[0],
+                                  event.ydata - self._centers[i].getCoords()[1])
             if cur_dist < min_dist:
                 min_dist = cur_dist
                 match_ind = i
@@ -267,7 +267,7 @@ class UserInterface():
     
     
     def ringMove(self):
-        self._cid.append(self._canvas.mpl_connect('button_press_event', self.moveCenter()))
+        self._cid.append(self._canvas.mpl_connect('button_press_event', self.moveCenter))
     
     
     def moveCenter(self, event):
@@ -421,12 +421,12 @@ class Image():
         
         for i in range(len(center_objects)):
             # Get circle coordinates for outlines and actual circles for centers
-            r_out, c_out = draw.circle(center_objects[i].getCenterCoord()[1],
-                                       center_objects[i].getCenterCoord()[0],
+            r_out, c_out = draw.circle(center_objects[i].getRingCenterCoord()[1],
+                                       center_objects[i].getRingCenterCoord()[0],
                                        int(average_closest / 3) + 3,
                                        shape=self._im_dim)
-            rr, cc = draw.circle(center_objects[i].getCenterCoord()[1],
-                                 center_objects[i].getCenterCoord()[0],
+            rr, cc = draw.circle(center_objects[i].getRingCenterCoord()[1],
+                                 center_objects[i].getRingCenterCoord()[0],
                                  int(average_closest / 3),
                                  shape=self._im_dim)
 
@@ -549,6 +549,8 @@ class Rings():
         self._image = image_class
         
         self._centers = []  # List of center objects
+        self._oxygens = []  # List of all oxygen objects
+        self._o_trip_locs = []  # List of oxygen triplet locations
         
         # If not importing an XYZ file, identify Si centers on greyscale image
         if not self._xyz_import:
@@ -636,7 +638,7 @@ class Rings():
         for blob in blobs:
             x_coord = int(blob[1])
             y_coord = int(blob[0])
-            self._centers.append(Center((x_coord, y_coord)))
+            self._centers.append(Center((x_coord, y_coord), self._image))
     
     
     def getCentersFromXyz(self):
@@ -650,22 +652,13 @@ class Rings():
             split_line = line.split(" ")
             nm_coord = [float(split_line[1]), float(split_line[2])]
             pixel_coord = self._image.nmToPixels(nm_coord)
-            self._centers.append(Center(pixel_coord))
+            self._centers.append(Center(pixel_coord), self._image)
     
     
     def centerInfo(self):
         """ Assigns several attributes to each center, including the distance
             to hole (nm), ring sizes, and ring center coordinates with respect
             to each center """
-
-        # List of each center's ring size/type
-        self._ring_sizes = []
-        
-        # List of each center's ring's center coordinates
-        self._center_coords = []
-        
-        # List of each center's distance from the hole(s) in nm
-        self._hole_dists = []
         
         exclude_thresh = 1.9
         
@@ -693,7 +686,7 @@ class Rings():
             scaled_num_neighbors = int(num_neighbors * percent_visible)
             
             # Coordinate of center's ring center
-            center_coord = self.findCenterCoord(k, num_neighbors, indices)
+            ring_center_coord = self.findRingCenterCoord(k, num_neighbors, indices)
             
             # Distance from hole(s) to center
             if self._num_holes > 0:
@@ -708,19 +701,15 @@ class Rings():
             if 4 <= scaled_num_neighbors <= 9 and percent_visible < 1.2 and\
             hole_dist > exclude_thresh * average_closest:
                 self._centers[k].assignRingSize(scaled_num_neighbors)
-                self._centers[k].assignCenterCoord(center_coord)
+                self._centers[k].assignRingCenterCoord(ring_center_coord)
                 self._centers[k].assignHoleDist(hole_nm_dist)
         
-        # FIX THIS
+        # Remove centers that did not meet the critera
         new_centers = []
         for center in self._centers:
-            if center.getCenterCoord():
+            if center.getRingCenterCoord():
                 new_centers.append(center)
-        
         self._centers = new_centers
-        
-        for center in self._centers:
-            print(center.getCenterCoord())
 
         # Plot the rings on the image
         self._image.plotRingCenters(self._centers, average_closest)
@@ -753,7 +742,7 @@ class Rings():
         return num_neighbors, percent_visible
     
     
-    def findCenterCoord(self, k, num_neighbors, indices):
+    def findRingCenterCoord(self, k, num_neighbors, indices):
         """ Determine the coordinates of each center's ring """
         
         nearest_centers = []
@@ -771,46 +760,231 @@ class Rings():
     
     def getSiOPlot(self):
         """ Obtain information necessary for locating Si and O atoms """
+        
+        self.makeOxygens()
+        self.oLocator()
+        self.siLocator()
+    
+    
+    def makeOxygens(self):
+        """ Make a list of oxygen objects """
+        
+        # Create a sorted list of ring center coordinates in nm
+        ring_center_nm_coords = []
+        for center in self._centers:
+            ring_center_nm_coords.append([center.getRingCenterNmCoord()[0],
+                                          center.getRingCenterNmCoord()[1]])
 
-        self.centerCoordsNm()
-        self.centersToObjects()
+        ring_center_nm_coords = sorted(ring_center_nm_coords)
         
-    
-    def centerCoordsNm(self):
-        """ Return the center coordinates in nm """
+        points = numpy.array(ring_center_nm_coords)
+        tri = Delaunay(points)
         
-        self._center_coords_nm = []
-        
-        for coord in self._center_coords:
-            self._center_coords_nm.append(self._image.pixelsToNm(coord))
-    
-    
-    def centersToObjects(self, unit):
-        """ Converts list of centers to center objects """
+        # Make a list of oxygen locations
+        o_locations = []
+        for i in range(len(tri.simplices)):
+            midptx1 = 0.50 * (points[tri.simplices][i][0][0] +
+                              points[tri.simplices][i][1][0])
+            midpty1 = 0.50 * (points[tri.simplices][i][0][1] +
+                              points[tri.simplices][i][1][1])
+            o_locations.append([midptx1, midpty1, 0])
 
-        self._center_obj_list = []
-    
-        for i in range(len(self._center_coords_nm)):
-            center = Si_Ring_Classes.ring_center(self._ring_sizes[i],
-                                                 self._center_coords_nm[i][0],
-                                                 self._center_coords_nm[i][1],
-                                                 0, 'nm')
-            self._center_obj_list.append(center)
+            midptx2 = (points[tri.simplices][i][1][0] +
+                       points[tri.simplices][i][2][0]) / 2.00
+            midpty2 = (points[tri.simplices][i][1][1] +
+                       points[tri.simplices][i][2][1]) / 2.00
+            o_locations.append([midptx2, midpty2, 0])
+
+            midptx3 = (points[tri.simplices][i][2][0] +
+                       points[tri.simplices][i][0][0]) / 2.00
+            midpty3 = (points[tri.simplices][i][2][1] +
+                       points[tri.simplices][i][0][1]) / 2.00
+            o_locations.append([midptx3, midpty3, 0])
+        
+        o_locations = sorted(o_locations)
+
+        # Check and remove any duplicates
+        new_o_locations = []
+        for i in range(len(o_locations) - 1):
+            if o_locations[i] != o_locations[i + 1]:
+                new_o_locations.append(o_locations[i])
+        
+        for location in new_o_locations:
+            self._oxygens.apppend(Oxygen(location))
+        
+        
+    def oLocator(self):
+        """ Locates all possible triplets assumeing oxygens are ordered by
+            increasing x values. Used to mark all the found oxygens close
+            enough to have a single Si between them """
+        
+        inclusion_radius = 0.345  # Max possible distance between two oxygen atoms (nm)
+        
+        for i in range(len(self._oxygens)):
             
+            # For each oxygen with an x position higher than the current
+            for j in range(1, len(self._oxygens) - i):
+                
+                # Preliminary calculation - is deltat x less than inclusion radius
+                if abs(self._oxygens[i].getCoords[0] - self._oxygens[i + j].getCoords[0])\
+                        <= inclusion_radius:
+                    
+                    # Is actual dist between the two oxygens less than inclusion radius
+                    if self._image.distance(self._oxygens[i].getCoords[0], self._oxygens[i + j].getCoords[0]())\
+                            <= inclusion_radius:
+                        
+                        # Add the acceptably close oxygen to the oxygen's triplet list
+                        self._oxygens[i].addTriplet(self._oxygens[i + j])
+            
+            # Check each oxygen's possible triplets to keep only the best
+            self.tripleChecker(self._oxygens[i], inclusion_radius)
+        
+            if self._oxygens[i].getTripletPositions():
+                self._o_trip_locs.append(self._oxygens[i].getTripletPositions())
+    
+    
+    def tripleChecker(self, oxygen, inclusion_radius):
+        """ Determine the best oxygen triplet to have an Si atom """
+        
+        # List of possible triplet oxygen atom positions
+        positions = []
+        for o_atom in oxygen.getTriplet():
+            positions.append(o_atom.getCoords())
+        
+        # If there is a triplet close enough to have a Si, return the triplet
+        if len(positions) == 3:
+            if self._image.distance(positions[1], positions[2]) <= inclusion_radius:
+                oxygen.setTripletPositions(positions)
+                return
+            
+        # If there are more than 2 close enough to have a Si between them, find
+        # the one that could not be used given the other two
+        if len(positions) > 3:
+            numbers = []
+            for i in range(len(positions)):
+                numbers.append(0)
+            for i in range(1, len(positions) - 1):
+                for j in range(1, len(positions) - i):
+                    # If two positions are not close enough, add a counter to both
+                    if self._image.distance(positions[i], positions[i + j]) > inclusion_radius:
+                        numbers[i] += 1
+                        numbers[i + j] += 1
+                    # If they are close enough, remove a counter from both
+                    else:
+                        numbers[i] -= 1
+                        numbers[i + j] -= 1
+    
+            # Remove the one with the most counters
+            del positions[numbers.index(max(numbers))]
+                
+            # If close enough, return triplet
+            if self._image.distance(positions[1], positions[2]) <= inclusion_radius:
+                oxygen.setTripletPositions(positions)
+                return
+    
+        # If they were not enough close to make a triplet, return none
+        oxygen.setTripletPositions('')
+    
+    
+    def siLocator(self):
+        """ Create a list of Si locations and create Si objects in Si_Ring_Classes.py """
+        
+        si_locations = []
+        for triplet in self._o_trip_locs:
+            si_locations.append(self.siFinder(triplet))
+        
+        # TO DO: Look into this more
+        # edge_buffer = 0.1
+    
+    
+    def siFinder(self, triplet):
+        """ Find the position of a Si given a triplet of oxygen """
 
+        dist = 0.16   # Characteristic distance (nm)
 
+        # Sets up the translation to happen around a basepoint (the first point
+        # in the positions)
+        trans = [[0, 0, 0], [triplet[1][0] - triplet[0][0],
+                             triplet[1][1] - triplet[0][1],
+                             triplet[1][2] - triplet[0][2]],
+                 [triplet[2][0] - triplet[0][0],
+                  triplet[2][1] - triplet[0][1],
+                  triplet[2][2] - triplet[0][2]]]
+
+        # Finds vector perpendicular to the plane of the three points
+        v = numpy.matrix([numpy.linalg.det([[trans[1][1], trans[2][1]],
+                                            [trans[1][2], trans[2][2]]]),
+                          numpy.linalg.det([[trans[1][0], trans[2][0]],
+                                            [trans[1][2], trans[2][2]]]),
+                          numpy.linalg.det([[trans[1][0], trans[2][0]],
+                                            [trans[1][1], trans[2][1]]])])
+
+        # Sets up first rotation matrix about the x axis
+        theta = math.atan2(v.item(1), v.item(2))
+        xmatr = numpy.matrix([[1, 0, 0], [0, math.cos(theta), - math.sin(theta)],
+                              [0, math.sin(theta), math.cos(theta)]])
+        trans1 = numpy.matrix(trans)
+        rot1 = numpy.matrix.dot(trans1, xmatr)
+        v1 = numpy.matrix.dot(v, xmatr)
+
+        # Second rotation matrix about the y axis
+        rho = math.atan2(v1.item(0), v1.item(2))
+        ymatr = numpy.matrix([[math.cos(rho), 0, math.sin(rho)], [0, 1, 0],
+                              [-math.sin(rho), 0, math.cos(rho)]])
+        rot2 = numpy.matrix.dot(rot1, ymatr)
+
+        # Should be in the xy plane now. Have to rotate such that two points
+        # are on the x axis
+        alph = math.atan2(rot2.item(4), rot2.item(3))
+        bet = math.atan2(rot2.item(7), rot2.item(6))
+        r1 = math.sqrt(math.pow(rot2.item(3), 2) + math.pow(rot2.item(4), 2))
+        r2 = math.sqrt(math.pow(rot2.item(6), 2) + math.pow(rot2.item(7), 2))
+        x = r1 / 2
+        y = r2 * (1 - math.cos(bet - alph)) / (2.0 * math.sin(bet - alph))
+        z = math.sqrt(abs(math.pow(dist, 2) - math.pow(x, 2) - math.pow(y, 2)))
+        si_pos = numpy.matrix([x, y, z])
+
+        # Rotate back to originial position
+        init = math.atan2(si_pos.item(1), si_pos.item(0))
+        r = math.sqrt(math.pow(si_pos.item(0), 2) + math.pow(si_pos.item(1), 2))
+        x = r * math.cos(init + alph)
+        y = r * math.sin(init + alph)
+        si_pos = numpy.matrix([x, y, z])
+
+        # Undo second rotation matrix
+        iymatr = numpy.linalg.inv(ymatr)
+        si_pos = numpy.matrix.dot(si_pos, iymatr)
+
+        # Undo first rotation matrix
+        ixmatr = numpy.linalg.inv(xmatr)
+        si_pos = numpy.matrix.dot(si_pos, ixmatr)
+
+        # Translate back so there is no point at the origin
+        si_pos = [si_pos.item(0) + triplet[0][0],
+                  si_pos.item(1) + triplet[0][1],
+                  si_pos.item(2) + triplet[0][2]]
+
+        return si_pos
+
+        
+            
 class Center():
     """ An object that represents each individual center and keeps track of its
         information, such as its coordinates, ring size, and the distance
         between it and the hole """
 
-    def __init__(self, coord):
+    def __init__(self, coord, image_class):
         """ Constructor """
         
-        self._coord = coord
-        self._ring_size = ''
+        self._coord = coord  # Coordinate where the center exists in pixels
+        self._image = image_class
+        
+        self._nm_coord = self._image.pixelsToNm(self._coord)
+        
+        self._ring_size = ''  # Numbers ranging from 4 to 9
         self._hole_dist = ''  # In nm
-        self._center_coord = ''
+        self._ring_center_coord = ''  # In pixels
+        self._ring_center_nm_coord = ''  # In nm
         
     
     def getCoords(self):
@@ -825,8 +999,12 @@ class Center():
         return self._hole_dist
     
     
-    def getCenterCoord(self):
-        return self._center_coord
+    def getRingCenterCoord(self):
+        return self._ring_center_coord
+    
+    
+    def getRingCenterNmCoord(self):
+        return self._ring_center_nm_coord
     
     
     def assignRingSize(self, ring_size):
@@ -837,8 +1015,44 @@ class Center():
         self._hole_dist = dist
         
     
-    def assignCenterCoord(self, coord):
-        self._center_coord = coord
+    def assignRingCenterCoord(self, coord):
+        self._ring_center_coord = coord
+        self._ring_center_nm_coord = self._image.pixelsToNm(coord)
+
+
+
+class Oxygen():
+    """ A class for each oxygen atom found with its location and if it is a
+        posible triplet """
+    
+    def __init__(self, coord):
+        """ Constructor """
+        
+        self._coord = coord
+        
+        self._triplet = []  # A list of other oxygens objects close enough to
+                            # it to have a single Si atom between them
+        self._triplet_positions = []  # A list of the best triplet positions
+        
+    
+    def getCoords(self):
+        return self._coord
+    
+    
+    def getTriplet(self):
+        return self._triplet
+    
+    
+    def getTripletPositions(self):
+        return self._triplet_positions
+    
+    
+    def addTriplet(self, atom):
+        self._triplet.append(atom)
+    
+    
+    def setTripletPositions(self, triplet_positions):
+        self._triplet_positions = triplet_positions
 
 
 
