@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Wed Jun  6 13:50:27 2018
+
+@author: DanWall
+"""
+
+def NEWsplitRingsIntoBins(bin_size, distances, si_objects): #Could possibly improve this to speed up a bit
+        """Divides rings into bins based on their distance from a hole/line of 
+        reference (either a hole or the left side of the sample. Takes a bin 
+        size, list of distances to hole/line (in nm), and a corresponsing list of Si
+        objects.  For each bin, this function finds each Si atom within its 
+        range, and adds its 3 associated rings types to the bin.  """
+        bin_list = [] #2-d array of each bin of ring types (types are ints)
+        bin_mids = [] #midpoint distance of each ring/bin from edge of hole
+        
+        #Get maximum distance away that a ring is from the hole or axis (in nm)
+        max_dist = float(numpy.max(distances))
+        bin_start = 0
+        while bin_start < max_dist:
+            #creates the bins
+            bin_mids.append(bin_start + (bin_size/2)) #save each midpoint in a list
+            
+            #put bins in the bin_list
+            #for each bin, set up a list of frequencies for each ring type
+            bin_list.append([0, 0, 0, 0, 0, 0]) 
+            bin_start += bin_size
+        
+        for i in range(len(si_objects)):
+            si = si_objects[i] #This is the Si that we are looking at
+            si_dist = distances[i] #Here is its distance from the hole or axis
+            si_rings = si.get_rings() #Here is a list of 3 ring objects for each Si
+            
+            #cycle through bins to find which one to put these 3 ring types in
+            bin_start = 0
+            bin_num = 0
+            while bin_start < max_dist:
+                if bin_start <= si_dist < bin_start + bin_size:
+                    #If the distance for the si fits in the bin,
+                    for ring in si_rings:
+                        #increment each ring type for the si's rings
+                        ring_type = ring.get_type()
+                        #only add a fraction to the frequency,
+                        #ex: 1 Si in a 7-mem ring is only 1/7 of the ring
+                        bin_list[bin_num][ring_type - 4] += (1/ring_type)
+                
+                bin_start += bin_size
+                bin_num += 1
+        
+        return bin_list, bin_mids
