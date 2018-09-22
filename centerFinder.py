@@ -949,7 +949,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         for center in list_of_centers:
             center_position = center.get_location()
             
-            distances, o_inds = getNearestNeighbors(o_locations,center_position, center.get_type())
+            distances, o_inds = getNearestNeighbors(o_locations,[center_position], center.get_type())
             
             for o in o_inds[0]:
                 center.set_atom(o_locations[o])
@@ -1186,10 +1186,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     
                     for j in (1, 2, 3):
                         new_vect_dist = si_dist[i][j]
-                        midpoint_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0] / 2, 
-                                        si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1] / 2]
-                        new_vect_ind = [si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0], 
-                                          si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]]
+                        midpoint_ind = [(si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0]) / 2, 
+                                        (si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1]) / 2]
+                        new_vect_ind = [(si_locations[si_ind[i][j]][0] - si_locations[si_ind[i][0]][0]), 
+                                        (si_locations[si_ind[i][j]][1] - si_locations[si_ind[i][0]][1])]
                         dot_prod = (new_vect_ind[0] * origin_vect_ind[0] +
                                     new_vect_ind[1] * origin_vect_ind[1])
                         dist_prod = origin_vect_dist * new_vect_dist
