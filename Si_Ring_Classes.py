@@ -10,7 +10,7 @@ def get_distance(pt1, pt2):
     return ((x1 - x2) ** 2 + (y1 - y2) ** 2) ** (1 / 2)
 
 
-class Si():
+class Si:
     """ Contains the location of the Si atom, as well as each of the
         three rings surrounding it. Objects do not automatically calculate
         their locations if you do not tell them to. NOTE: The main
@@ -170,7 +170,7 @@ class Si():
             self._d3 = distance
 
 
-class ring_center():
+class ring_center:
     """ Contains the location of the ring center, and the type of ring
         (number of members). Objects do not automatically calculate their
         locations if you do not tell them to. NOTE: The main functionality is
@@ -238,7 +238,7 @@ class ring_center():
         del self._atoms[index]
 
 
-class STM():
+class STM:
     """ A class to describe the STM image. Includes information like filename,
     Image Dimensions (pixels), sample dimensions (nm), scale, number of holes,
     and coordinates of those holes."""
