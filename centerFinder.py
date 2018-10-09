@@ -230,41 +230,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 shortest_dist = dist
         return shortest_dist
 
-    #Get coordinates of borders of holes from greyscale image
-    def getHoleCoords(greyscale, num_holes):
-        if num_holes > 0:
-            #Threshold greyscale image to create a binary image
-            im_thresh = filters.threshold_minimum(greyscale)
-            binary = greyscale > im_thresh
-
-            #Erode the binary image and then subtract from original to get borders
-            erosion = numpy.pad(morphology.binary_erosion(binary)[2:-2,2:-2],2,'maximum')
-            borders = binary ^ erosion
-            borders = numpy.pad(borders[1:-1,1:-1],1,'edge')
-
-            #Label the regions in the image
-            label_image = measure.label(borders)
-            regions = measure.regionprops(label_image)
-
-            #Put all of the areas of regions in border image into list
-            areas = []
-            for region in regions:
-                areas.append(region.area)
-
-            #Get the coordinates of the largest num_holes number of border regions
-            hole_coords = []
-            for i in range(num_holes):
-                max_ind = numpy.argmax(areas)
-                coords = regions[max_ind].coords
-                for coord in coords:
-                    hole_coords.append([coord[1], coord[0]])
-
-                del regions[max_ind]
-                del areas[max_ind]
-
-            return hole_coords
-        else:
-            return []
 
     #Takes the coordinates of the borders of the holes and fills them in to get
     # a mask image of the holes
@@ -276,7 +241,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
         return ndi.binary_fill_holes(morphology.binary_closing(hole_image))
 
-    hole_coords = getHoleCoords(grey, num_holes)
+    #hole_coords = getHoleCoords(grey, num_holes)
     #holes = getHoleImage(hole_coords)
     holes = getHoleImage(stm_image.get_hole_coords(grey))
 
@@ -383,7 +348,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
         # Gets the distances from every center to the nearest point on the edge of a hole
         if num_holes > 0:
-            hole_distances, hole_inds = getNearestNeighbors(hole_coords,
+            hole_distances, hole_inds = getNearestNeighbors(stm_image._hole_coords,
                                                             centers, 2)
 
         hole_dists = [] # List of the distance of each center to nearest hole edge, I think
@@ -440,14 +405,14 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 center_coord.append([(centers[k][0]+centroid[0])/2,(centers[k][1]+centroid[1])/2])
 
         hole_nm_coords = [] #converts hole coords to nm
-        for coord in hole_coords:
+        for coord in stm_image._hole_coords:
             hole_nm_coords.append(pixelsToNm(coord, dimensions, image_width, image_height))
-            stm_image._hole_coords.append(pixelsToNm(coord, dimensions, image_width, image_height))
+            #stm_image._hole_coords.append(pixelsToNm(coord, dimensions, image_width, image_height))
 
         hole_nm_dists = [] #converts hole_dists to nm
         for dist in hole_dists:
             hole_nm_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
-            stm_image._hole_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
+            #stm_image._hole_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
 
         return hole_nm_dists, ring_size, center_coord, hole_nm_coords
 

@@ -279,6 +279,7 @@ class STM:
     def get_num_holes(self):
         return self._num_holes
 
+    #Get coordinates of borders of holes from greyscale image
     def get_hole_coords(self, greyscale):
         if self._num_holes > 0:
             #Threshold greyscale image to create a binary image
