@@ -1,4 +1,12 @@
 from sklearn.neighbors import NearestNeighbors
+import math
+import numpy
+import matplotlib
+
+from skimage import filters
+from skimage import morphology
+from skimage import measure
+
 
 
 def get_distance(pt1, pt2):
@@ -251,6 +259,10 @@ class STM:
         self._scale = im_dim[0] / sample_dim[0]  # ratio pixels/nm
         self._num_holes = num_holes
         self._hole_coords = []
+        self._hole_dists = []
+        self._rings = []
+        self._Sis = []
+        self._Os = []
 
     def get_filename(self):
         return self._filename
@@ -267,7 +279,38 @@ class STM:
     def get_num_holes(self):
         return self._num_holes
 
-    def get_hole_coords(self):
+    def get_hole_coords(self, greyscale):
+        if self._num_holes > 0:
+            #Threshold greyscale image to create a binary image
+            im_thresh = filters.threshold_minimum(greyscale)
+            binary = greyscale > im_thresh
+
+            #Erode the binary image and then subtract from original to get borders
+            erosion = numpy.pad(morphology.binary_erosion(binary)[2:-2,2:-2],2,'maximum')
+            borders = binary ^ erosion
+            borders = numpy.pad(borders[1:-1,1:-1],1,'edge')
+
+            #Label the regions in the image
+            label_image = measure.label(borders)
+            regions = measure.regionprops(label_image)
+
+            #Put all of the areas of regions in border image into list
+            areas = []
+            for region in regions:
+                areas.append(region.area)
+
+            #Get the coordinates of the largest num_holes number of border regions
+            self._hole_coords = []
+            for i in range(self._num_holes):
+                max_ind = numpy.argmax(areas)
+                coords = regions[max_ind].coords
+                for coord in coords:
+                    self._hole_coords.append([coord[1], coord[0]])
+
+                del regions[max_ind]
+                del areas[max_ind]
+        else:
+            self._hole_coords = []
         return self._hole_coords
 
 

@@ -49,9 +49,9 @@ save_figures = False
 
 # Colors for each of the ring numbers
 # DSW edit 5/31/18: made 9 member brown to match PRL
-colors = [[178, 112, 248], [75, 176, 246], [67, 196, 127],
+COLORS = [[178, 112, 248], [75, 176, 246], [67, 196, 127],
           [249, 222, 62], [249, 76, 62], [147, 73, 0]]
-colorsHex = ['#B270F8', '#4BB0F6', '#43C47F', '#F9DE3E', '#F94C3E', '#934900']
+COLORSHEX = ['#B270F8', '#4BB0F6', '#43C47F', '#F9DE3E', '#F94C3E', '#934900']
 
 scaling_factor = 1
 
@@ -194,16 +194,19 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     image_width = len(grey[0])
     image_height = len(grey)
 
+    # Creates instance of STM class
+    stm_image = Si_Ring_Classes.STM(filename, (len(grey), len(grey[0])), dimensions, num_holes)
+
     # Plots circles of a given radius and color on a given image at given coordinates
     def plotCirclesOnImage(image, coords, radius, color):
         for coord in coords:
-            rr, cc = draw.circle(coord[1], coord[0], radius, shape=(image_height, image_width))
+            rr, cc = draw.circle(coord[1], coord[0], radius, shape=stm_image._im_dim)
             image[rr, cc] = color
 
     # Same as above but coord reversed
     def plotCirclesOnImageRev(image, coords, radius, color):
         for coord in coords:
-            rr, cc = draw.circle(coord[0], coord[1], radius, shape=(image_height, image_width))
+            rr, cc = draw.circle(coord[0], coord[1], radius, shape=stm_image._im_dim)
             image[rr, cc] = color
 
     # Finds the distances and indices of the nearest given number of the base coords
@@ -218,10 +221,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         return dist, ind
 
     def distFromPointToGroup(point, group):
-        shortest_dist = math.sqrt(((group[0][0] - point[0])**2) + 
+        shortest_dist = math.sqrt(((group[0][0] - point[0])**2) +
                          ((group[0][1] - point[1])**2))
         for coord in group[1:]:
-            dist = math.sqrt(((coord[0] - point[0])**2) + 
+            dist = math.sqrt(((coord[0] - point[0])**2) +
                          ((coord[1] - point[1])**2))
             if dist <= shortest_dist:
                 shortest_dist = dist
@@ -267,14 +270,15 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     # a mask image of the holes
     def getHoleImage(hole_coords):
         hole_image = numpy.zeros((image_height,image_width))
-        
+
         for coord in hole_coords:
             hole_image[coord[1],coord[0]] = 1
 
         return ndi.binary_fill_holes(morphology.binary_closing(hole_image))
 
     hole_coords = getHoleCoords(grey, num_holes)
-    holes = getHoleImage(hole_coords)
+    #holes = getHoleImage(hole_coords)
+    holes = getHoleImage(stm_image.get_hole_coords(grey))
 
     if not import_xyz:
         #Black out the holes in the greyscale image so no centers will be placed there
@@ -294,7 +298,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             return centers
 
         #Find blobs in image in order to locate ring centers
-    
+
         # min_sigma -> increase to find more small rings
         # max_sigma -> increase to find more large rings
         # sigma_ratio -> used in calculation of rings
@@ -329,8 +333,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             plotCirclesOnImageRev(grey_inv_copy, peak_coord,
                                   avg_closest * average_thresh, 0)
 
-            peak_coord = numpy.concatenate((peak_coord, 
-                                            feature.peak_local_max(grey_inv_copy, 
+            peak_coord = numpy.concatenate((peak_coord,
+                                            feature.peak_local_max(grey_inv_copy,
                                                                    min_distance=24,
                                                                    threshold_rel=0.2)))
 
@@ -341,7 +345,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
         peak_dist, peak_ind = getNearestNeighbors(centers, peak_coord, 2)
 
-# Somewhat experimental -> tends to add extra centers but for some images too many 
+# Somewhat experimental -> tends to add extra centers but for some images too many
         add_peak_centers = False
         if add_peak_centers:
             peak_thresh = 1.4
@@ -409,7 +413,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             # Gets the perc of the ring neighbors that are visible in the window
             percent_visible = len(r_full) / len(r_bound)
 
-            # Scales the number of neighbors based on what it should be if all the 
+            # Scales the number of neighbors based on what it should be if all the
             # ring neighbors were visible
             scaled_num_neighbors = int(num_neighbors * percent_visible)
 
@@ -438,10 +442,12 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         hole_nm_coords = [] #converts hole coords to nm
         for coord in hole_coords:
             hole_nm_coords.append(pixelsToNm(coord, dimensions, image_width, image_height))
+            stm_image._hole_coords.append(pixelsToNm(coord, dimensions, image_width, image_height))
 
         hole_nm_dists = [] #converts hole_dists to nm
         for dist in hole_dists:
             hole_nm_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
+            stm_image._hole_dists.append(pixelDistToNm(dist, dimensions, image_width, image_height))
 
         return hole_nm_dists, ring_size, center_coord, hole_nm_coords
 
@@ -465,8 +471,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             # Plot outlines
             image[r_out, c_out] = [0, 0, 0]
 
-            # Assign appropriate colors to center coordinates
-            image[rr, cc] = colors[ring_size[i]-4]
+            # Assign appropriate COLORS to center coordinates
+            image[rr, cc] = COLORS[ring_size[i]-4]
 
     plotRingCenters(image, ring_size, center_coord, average_closest)
 
@@ -494,7 +500,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         if len(positions) == 3:
             if distance(positions[1], positions[2]) <= dist:
                 return positions
-        
+
         # If there are more than 2 close enough to have a Si between them, find
         # the one that could not be used given the other two
         if len(positions) > 3:
@@ -514,7 +520,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
             # Remove the one with the most counters
             del positions[numbers.index(max(numbers))]
-            
+
             # If close enough, return triplet
             if distance(positions[1], positions[2]) <= dist:
                 return positions
@@ -851,7 +857,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         # make a list of the Si atoms as objects
         si_objects = []
         for loc in si_locations:
-            # consturct Si object
+            # construct Si object
             si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2], 'nm')
             # find rings for each object
             si.find_rings(list_of_centers, x_max, y_max, edge_buffer)
@@ -1001,10 +1007,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
         def ringAdd():
             cid.append(canvas.mpl_connect('button_press_event', addcenter))
-            
+
         def ringRemove():
             cid.append(canvas.mpl_connect('button_press_event', removecenter))
-            
+
         def ringMove():
             cid.append(canvas.mpl_connect('button_press_event', movecenter))
 
@@ -1048,7 +1054,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             _, ring_size, center_coord, _ = getNumNeighbors(centers, thresh, average_closest)
 
 
-            #Plots the silicon and oxygen positions onto image and returns all 
+            #Plots the silicon and oxygen positions onto image and returns all
             # object needed to construct other plots
             plot_image, o_locations, si_locations, triplet_types, counts, si_objects = getSiOPlot(center_coord, ring_size)
 
@@ -1155,7 +1161,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 # Plots the mid point of the bin vs. percs of each ring size
                 for i in range(len(size_perc)):
                     plt.plot(bin_mids, size_perc[i],
-                             label=str(i + 4) + ' MR', color=colorsHex[i])
+                             label=str(i + 4) + ' MR', color=COLORSHEX[i])
 
                 # Adds a legend to the plot
                 plt.legend(loc=0, ncol=2)
