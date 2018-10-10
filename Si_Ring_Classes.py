@@ -6,6 +6,8 @@ import matplotlib
 from skimage import filters
 from skimage import morphology
 from skimage import measure
+from scipy import ndimage as ndi
+from skimage import draw
 
 
 
@@ -279,15 +281,16 @@ class STM:
     def get_num_holes(self):
         return self._num_holes
 
-    #Get coordinates of borders of holes from greyscale image
     def get_hole_coords(self, greyscale):
+        """ Gets coordinates of borders of holes from greyscale image """
         if self._num_holes > 0:
             #Threshold greyscale image to create a binary image
             im_thresh = filters.threshold_minimum(greyscale)
             binary = greyscale > im_thresh
 
-            #Erode the binary image and then subtract from original to get borders
-            erosion = numpy.pad(morphology.binary_erosion(binary)[2:-2,2:-2],2,'maximum')
+            #Erode the binary image and subtract from original to get borders
+            erosion = numpy.pad(morphology.binary_erosion(binary)[2:-2,2:-2],2,
+                                'maximum')
             borders = binary ^ erosion
             borders = numpy.pad(borders[1:-1,1:-1],1,'edge')
 
@@ -300,7 +303,7 @@ class STM:
             for region in regions:
                 areas.append(region.area)
 
-            #Get the coordinates of the largest num_holes number of border regions
+            #Get the coords of the largest num_holes number of border regions
             self._hole_coords = []
             for i in range(self._num_holes):
                 max_ind = numpy.argmax(areas)
@@ -313,6 +316,25 @@ class STM:
         else:
             self._hole_coords = []
         return self._hole_coords
+
+    def get_hole_image(self):
+        """ Takes the coordinates of the borders of the holes and fills them in
+            to get a mask image of the holes """
+        hole_image = numpy.zeros(self._im_dim)
+
+        for coord in self._hole_coords:
+            hole_image[coord[1],coord[0]] = 1
+
+        return ndi.binary_fill_holes(morphology.binary_closing(hole_image))
+
+    # Plots circles of a given radius and color on a given image at given coordinates
+    def plot_circles(self, image, coords, radius, color, reversed):
+        i, j = 1, 0
+        if reversed:
+            i, j = 0, 1
+        for coord in coords:
+            rr, cc = draw.circle(coord[i], coord[j], radius, shape=self._im_dim)
+            image[rr, cc] = color
 
 
 def main():

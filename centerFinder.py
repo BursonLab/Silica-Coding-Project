@@ -59,9 +59,7 @@ scaling_factor = 1
 root = Tk.Tk()
 root.wm_title("Auto Ring Center Finder")
 
-
 def getFilename():
-
     # Variables for storing text entered
     entryFilename = Tk.StringVar()
     entryHeight = Tk.StringVar()
@@ -152,7 +150,6 @@ def getFilename():
         except UnicodeDecodeError:
             pass
 
-
 """AUTOMATIC CENTER FINDING CODE"""
 
 
@@ -197,18 +194,6 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     # Creates instance of STM class
     stm_image = Si_Ring_Classes.STM(filename, (len(grey), len(grey[0])), dimensions, num_holes)
 
-    # Plots circles of a given radius and color on a given image at given coordinates
-    def plotCirclesOnImage(image, coords, radius, color):
-        for coord in coords:
-            rr, cc = draw.circle(coord[1], coord[0], radius, shape=stm_image._im_dim)
-            image[rr, cc] = color
-
-    # Same as above but coord reversed
-    def plotCirclesOnImageRev(image, coords, radius, color):
-        for coord in coords:
-            rr, cc = draw.circle(coord[0], coord[1], radius, shape=stm_image._im_dim)
-            image[rr, cc] = color
-
     # Finds the distances and indices of the nearest given number of the base coords
     # to each of the provided search coords
     def getNearestNeighbors(base_coords, search_coords, num_neighbors):
@@ -230,20 +215,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 shortest_dist = dist
         return shortest_dist
 
-
-    #Takes the coordinates of the borders of the holes and fills them in to get
-    # a mask image of the holes
-    def getHoleImage(hole_coords):
-        hole_image = numpy.zeros((image_height,image_width))
-
-        for coord in hole_coords:
-            hole_image[coord[1],coord[0]] = 1
-
-        return ndi.binary_fill_holes(morphology.binary_closing(hole_image))
-
-    #hole_coords = getHoleCoords(grey, num_holes)
-    #holes = getHoleImage(hole_coords)
-    holes = getHoleImage(stm_image.get_hole_coords(grey))
+    stm_image.get_hole_coords(grey)
+    holes = stm_image.get_hole_image()
 
     if not import_xyz:
         #Black out the holes in the greyscale image so no centers will be placed there
@@ -284,7 +257,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             #TO DO: Possibly look into scaling this based on average closest
             average_thresh = 1.6 #2.1#1.6 #1.92
 
-            plotCirclesOnImage(grey_inv, centers, avg_closest*average_thresh, 0)
+            stm_image.plot_circles(grey_inv, centers, avg_closest*average_thresh, 0, False)
 
             #Find blobs that may be rings that have not been found on first pass
             blobs = numpy.concatenate((blobs, feature.blob_dog(grey_inv,
@@ -295,8 +268,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                                                               overlap=0.3)))
             centers = getBlobCenters(blobs)
 
-            plotCirclesOnImageRev(grey_inv_copy, peak_coord,
-                                  avg_closest * average_thresh, 0)
+            stm_image.plot_circles(grey_inv_copy, peak_coord,
+                                  avg_closest * average_thresh, 0, True)
 
             peak_coord = numpy.concatenate((peak_coord,
                                             feature.peak_local_max(grey_inv_copy,
@@ -421,17 +394,17 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     thresh = 1.48
     #thresh = 1.52
 
-    hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
+    hole_dist, ring_size, center_coord, stm_image._hole_coords = getNumNeighbors(centers, thresh, average_closest)
 
     def plotRingCenters(image, ring_size, centers, average_closest):
         for i in range(len(ring_size)):
             # Get circle coordinates for outlines and actual circles for centers
             r_out, c_out = draw.circle(centers[i][1], centers[i][0],
                                        int(average_closest / 3) + 3,
-                                       shape=(image_height, image_width))
+                                       shape=stm_image._im_dim)
             rr, cc = draw.circle(centers[i][1], centers[i][0],
                                  int(average_closest / 3),
-                                 shape=(image_height, image_width))
+                                 shape=stm_image._im_dim)
 
             # Plot outlines
             image[r_out, c_out] = [0, 0, 0]
@@ -862,7 +835,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             xSipos.append(si_locations[i][0])
             ySipos.append(si_locations[i][1])
 
-        plotCirclesOnImage(plot_image, siCoords, 5, [0, 250, 0])
+        stm_image.plot_circles(plot_image, siCoords, 5, [0, 250, 0], False)
 
         xOpos = []
         yOpos = []
@@ -887,9 +860,9 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             for o in o_inds[0]:
                 center.set_atom(o_locations[o])
 
-        plotCirclesOnImage(plot_image, oCoords, 5, [250, 0, 0])
+        stm_image.plot_circles(plot_image, oCoords, 5, [250, 0, 0], False)
 
-        plotCirclesOnImage(plot_image, center_coord, 5, [0, 0, 250])
+        stm_image.plot_circles(plot_image, center_coord, 5, [0, 0, 250], False)
 
         return plot_image, o_locations, si_locations, triplet_types, counts, si_objects
 
@@ -960,7 +933,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             image = io.imread(filename)
 
 #            if autoRingToggle.get():
-            hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
+            hole_dist, ring_size, center_coord, stm_image._hole_coords = getNumNeighbors(centers, thresh, average_closest)
 
             plotRingCenters(image, ring_size, center_coord, average_closest)
 
@@ -1005,7 +978,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         saveBtn.pack(side=Tk.RIGHT)
 
         def xyzFile():
-            hole_dist, ring_size, center_coord, hole_coords = getNumNeighbors(centers, thresh, average_closest)
+            hole_dist, ring_size, center_coord, stm_image._hole_coords = getNumNeighbors(centers, thresh, average_closest)
             createXyzFile(center_coord, ring_size)
 
         def doneEditing():
@@ -1026,11 +999,11 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
             # outline hole with light blue
             pix_hole_coords = []
-            for coord in hole_coords:
+            for coord in stm_image._hole_coords:
                 pix_hole_coords.append(nmToPixels(coord,
                                                   dimensions,
                                                   image_width, image_height))
-            plotCirclesOnImage(plot_image, pix_hole_coords, 5, [0, 191, 255])
+            stm_image.plot_circles(plot_image, pix_hole_coords, 5, [0, 191, 255], False)
 
             fig.clf()
             ax = fig.add_subplot(111)
@@ -1148,7 +1121,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         distancesToHole = []
                         for si in si_objects:
                             dist = distFromPointToGroup(si.get_nm_location(),
-                                                        hole_coords)
+                                                        stm_image._hole_coords)
                             distancesToHole.append(dist)
 
                         bin_list, bin_mids = splitRingsIntoBins(binSize,
@@ -1203,7 +1176,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                         distancesToHole = []
                         for si in si_objects:
                             dist = distFromPointToGroup(si.get_nm_location(),
-                                                        hole_coords)
+                                                        stm_image._hole_coords)
                             distancesToHole.append(dist)
 
                         bin_list, bin_mids = splitRingsIntoBins(binSize,
@@ -1285,10 +1258,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 getCrystalStats(False)
 
             def plotDDOHoles():
-                ddoPlot(si_locations, hole_coords, True)
+                ddoPlot(si_locations, stm_image._hole_coords, True)
 
             def plotDDOinX():
-                ddoPlot(si_locations, hole_coords, False)
+                ddoPlot(si_locations, stm_image._hole_coords, False)
 
             """PLOTTING AND EXPORTING DROPDOWN MENU CODE"""
 
