@@ -209,21 +209,21 @@ class ring_center:
 
     def find_nm_location(self, nm_dim, im_width, im_height):
         """ Finds the coordinates in nm when the pixel coordinates are
-        known. """
+            known. """
         scale = (nm_dim[0] / im_width)
         for i in range(3):
             self._nm_location[i] = scale * self._pixels_location[i]
 
     def find_pix_location(self, nm_dim, im_width, im_height):
         """ Finds the coordinates in pixels when the nm coordinates are
-        known. """
+            known. """
         scale = (im_width / nm_dim[0])
         for i in range(3):
             self._pixel_location[i] = scale * self._location[i]
 
     def change_location(self, x, y, z, unit, nm_dim, im_width, im_height):
         """ Changes the coordinates of the center, and finds the coordinates in
-        the other unit. """
+            the other unit. """
         if unit == "nm":
             self._nm_location = [x, y, z]
             self.find_pix_location(nm_dim, im_width, im_height)
@@ -299,9 +299,7 @@ class STM:
             regions = measure.regionprops(label_image)
 
             #Put all of the areas of regions in border image into list
-            areas = []
-            for region in regions:
-                areas.append(region.area)
+            areas = [region.area for region in regions]
 
             #Get the coords of the largest num_holes number of border regions
             self._hole_coords = []
@@ -327,18 +325,12 @@ class STM:
 
         return ndi.binary_fill_holes(morphology.binary_closing(hole_image))
 
-    # Plots circles of a given radius and color on a given image at given coordinates
     def plot_circles(self, image, coords, radius, color, reversed):
+        """ Plots circles of a given radius and color on a given image at given
+            coordinates """
         i, j = 1, 0
         if reversed:
             i, j = 0, 1
         for coord in coords:
             rr, cc = draw.circle(coord[i], coord[j], radius, shape=self._im_dim)
             image[rr, cc] = color
-
-
-def main():
-    return
-
-
-main()
