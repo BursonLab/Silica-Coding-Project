@@ -195,8 +195,8 @@ class ring_center:
             self._nm_location = [x, y, z]
             self._pixel_location = [0, 0, 0]
         else:
-            self._nm_location = [0, 0, 0]
             self._pixel_location = [x, y, z]
+            self._nm_location = [0, 0, 0]
         self._atoms = []
 
     def get_nm_location(self):
@@ -205,31 +205,20 @@ class ring_center:
 
     def get_pix_location(self):
         """ Returns the location in (x, y, z) form. Units are Pixels"""
-        return self._location
+        return self._pixel_location
 
-    def find_nm_location(self, nm_dim, im_width, im_height):
+    def find_nm_location(self, scale):
         """ Finds the coordinates in nm when the pixel coordinates are
             known. """
-        scale = (nm_dim[0] / im_width)
         for i in range(3):
-            self._nm_location[i] = scale * self._pixels_location[i]
+            self._nm_location[i] = (1 / scale) * self._pixel_location[i]
 
-    def find_pix_location(self, nm_dim, im_width, im_height):
+    def find_pix_location(self, scale):
         """ Finds the coordinates in pixels when the nm coordinates are
             known. """
-        scale = (im_width / nm_dim[0])
+        scale = (im_nm[0] / nm_dim[1])
         for i in range(3):
             self._pixel_location[i] = scale * self._location[i]
-
-    def change_location(self, x, y, z, unit, nm_dim, im_width, im_height):
-        """ Changes the coordinates of the center, and finds the coordinates in
-            the other unit. """
-        if unit == "nm":
-            self._nm_location = [x, y, z]
-            self.find_pix_location(nm_dim, im_width, im_height)
-        else:
-            self._pixel_location = [x, y, z]
-            self.find_nm_location(nm_dim, im_width, im_height)
 
     def get_type(self):
         """returns type of ring"""
@@ -248,6 +237,8 @@ class ring_center:
         del self._atoms[index]
 
 
+
+
 class STM:
     """ A class to describe the STM image. Includes information like filename,
     Image Dimensions (pixels), sample dimensions (nm), scale, number of holes,
@@ -256,9 +247,9 @@ class STM:
     def __init__(self, filename, im_dim, sample_dim, num_holes):
         """ Constructor. """
         self._filename = filename
-        self._im_dim = im_dim  # [image width, image height] (pixels)
+        self._im_dim = im_dim  # [image HEIGHT, image width] (pixels) flipped!
         self._sample_dim = sample_dim  # [sample width, sample height] (nm)
-        self._scale = im_dim[0] / sample_dim[0]  # ratio pixels/nm
+        self._scale = im_dim[0] / sample_dim[1]  # ratio pixels/nm
         self._num_holes = num_holes
         self._hole_coords = []
         self._hole_dists = []
@@ -334,3 +325,13 @@ class STM:
         for coord in coords:
             rr, cc = draw.circle(coord[i], coord[j], radius, shape=self._im_dim)
             image[rr, cc] = color
+
+    def centers_to_objects(self, ring_size, center_list, unit):
+        """Converts list of centers to center objects and puts in ring list"""
+        for i in range(len(center_list)):
+            center = ring_center(ring_size[i], center_list[i][0], center_list[i][1], 0, unit)
+            if unit != "nm":
+                center.find_nm_location(self._scale)
+            else:
+                center.find_pix_location(self._scale)
+            self._rings.append(center)
