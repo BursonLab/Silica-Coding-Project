@@ -770,12 +770,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             si_locations.append(si_finder(triples[j]))
 
         # make a list of the Si atoms as objects
-        for loc in si_locations:
-            # construct Si object
-            si = Si_Ring_Classes.Si(loc[0], loc[1], loc[2], 'nm')
-            # find rings for each object
-            si.find_rings(stm_image._rings, x_max, y_max, edge_buffer)
-            stm_image._Sis.append(si)  # add object to list
+        stm_image.Sis_to_objects(si_locations, "nm", x_max, y_max, edge_buffer)
 
         types = get_stats(stm_image._Sis)  # run stats data and return stat list
 

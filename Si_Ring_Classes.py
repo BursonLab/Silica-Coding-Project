@@ -77,19 +77,15 @@ class Si:
         """ Returns the location in (x, y, z) form. Units are Pixels"""
         return self._location
 
-    def find_nm_location(self, nm_dim, im_width, im_height):
-        """ Finds the coordinates in nm when the pixel coordinates are
-        known. """
-        scale = (nm_dim[0] / im_width)
+    def find_nm_location(self, scale):
+        """ Finds the coordinates in nm when pixel coordinates are known."""
         for i in range(3):
-            self._nm_location[i] = scale * self._pixels_location[i]
+            self._nm_location[i] = (1 / scale) * self._pixel_location[i]
 
-    def find_pix_location(self, nm_dim, im_width, im_height):
-        """ Finds the coordinates in pixels when the nm coordinates are
-        known. """
-        scale = (im_width / nm_dim[0])
+    def find_pix_location(self, scale):
+        """ Finds the coordinates in pixels when nm coordinates are known."""
         for i in range(3):
-            self._pixel_location[i] = scale * self._location[i]
+            self._pixel_location[i] = scale * self._nm_location[i]
 
     def get_rings(self):
         """ Returns the list of rings bordering the atom. """
@@ -113,8 +109,7 @@ class Si:
             return
 
         # Sets an arbitrary number as the first distance. This number
-        # is used because it will be bigger than any distance
-        # calculated.
+        # is used because it will be bigger than any distance calculated.
         distance = 100000000000000000000
         answers = []
         for i in range(len(ring_list)):
@@ -218,7 +213,7 @@ class ring_center:
             known. """
         scale = (im_nm[0] / nm_dim[1])
         for i in range(3):
-            self._pixel_location[i] = scale * self._location[i]
+            self._pixel_location[i] = scale * self._nm_location[i]
 
     def get_type(self):
         """returns type of ring"""
@@ -335,3 +330,14 @@ class STM:
             else:
                 center.find_pix_location(self._scale)
             self._rings.append(center)
+
+    def Sis_to_objects(self, si_list, unit, x_max, y_max, edge_buffer):
+        """Converts list of si coords to Si objects and puts in Sis list"""
+        for loc in si_list:
+            si = Si(loc[0], loc[1], loc[2], unit)
+            if unit != "nm":
+                si.find_nm_location(self._scale)
+            else:
+                si.find_pix_location(self._scale)
+            si.find_rings(self._rings, x_max, y_max, edge_buffer)
+            self._Sis.append(si)
