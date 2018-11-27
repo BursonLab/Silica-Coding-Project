@@ -77,16 +77,6 @@ class Si:
         """ Returns the location in (x, y, z) form. Units are Pixels"""
         return self._location
 
-    def find_nm_location(self, scale):
-        """ Finds the coordinates in nm when pixel coordinates are known."""
-        for i in range(3):
-            self._nm_location[i] = (1 / scale) * self._pixel_location[i]
-
-    def find_pix_location(self, scale):
-        """ Finds the coordinates in pixels when nm coordinates are known."""
-        for i in range(3):
-            self._pixel_location[i] = scale * self._nm_location[i]
-
     def get_rings(self):
         """ Returns the list of rings bordering the atom. """
         return self._rings
@@ -202,19 +192,6 @@ class ring_center:
         """ Returns the location in (x, y, z) form. Units are Pixels"""
         return self._pixel_location
 
-    def find_nm_location(self, scale):
-        """ Finds the coordinates in nm when the pixel coordinates are
-            known. """
-        for i in range(3):
-            self._nm_location[i] = (1 / scale) * self._pixel_location[i]
-
-    def find_pix_location(self, scale):
-        """ Finds the coordinates in pixels when the nm coordinates are
-            known. """
-        scale = (im_nm[0] / nm_dim[1])
-        for i in range(3):
-            self._pixel_location[i] = scale * self._nm_location[i]
-
     def get_type(self):
         """returns type of ring"""
         return self._ring_type
@@ -247,7 +224,7 @@ class STM:
         self._scale = im_dim[0] / sample_dim[1]  # ratio pixels/nm
         self._num_holes = num_holes
         self._hole_coords = []
-        self._hole_dists = []
+        self._hole_dists = [] # List of the distance of each center to nearest hole edge in nm
         self._rings = []
         self._Sis = []
         self._Os = []
@@ -266,6 +243,16 @@ class STM:
 
     def get_num_holes(self):
         return self._num_holes
+
+    def find_nm_location(self, object):
+        """ Finds the coordinates of an object in nm when pixel coordinates are known."""
+        for i in range(3):
+            object._nm_location[i] = (1 / self._scale) * object._pixel_location[i]
+
+    def find_pix_location(self, object):
+        """ Finds the coordinates of an object in pixels when nm coordinates are known."""
+        for i in range(3):
+            object._pixel_location[i] = self._scale * object._nm_location[i]
 
     def get_hole_coords(self, greyscale):
         """ Gets coordinates of borders of holes from greyscale image """
@@ -326,9 +313,9 @@ class STM:
         for i in range(len(center_list)):
             center = ring_center(ring_size[i], center_list[i][0], center_list[i][1], 0, unit)
             if unit != "nm":
-                center.find_nm_location(self._scale)
+                self.find_nm_location(center)
             else:
-                center.find_pix_location(self._scale)
+                self.find_pix_location(center)
             self._rings.append(center)
 
     def Sis_to_objects(self, si_list, unit, x_max, y_max, edge_buffer):
@@ -336,8 +323,8 @@ class STM:
         for loc in si_list:
             si = Si(loc[0], loc[1], loc[2], unit)
             if unit != "nm":
-                si.find_nm_location(self._scale)
+                self.find_nm_location(si)
             else:
-                si.find_pix_location(self._scale)
+                self.find_pix_location(si)
             si.find_rings(self._rings, x_max, y_max, edge_buffer)
             self._Sis.append(si)

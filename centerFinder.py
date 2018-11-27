@@ -316,7 +316,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     average_closest = numpy.median(c_dist[:][1])
 
     def getNumNeighbors(centers, thresh, average_closest):
-        """Returns several lists, including the distance to hole (nm),
+        """Edits lists in stm_image, including the distance to hole (nm),
         ring sizes, ring center coordinates, and  hole coordinates (nm)"""
         # Get distances and indices of 9 nearest neighbors to every center
         distances, indices = getNearestNeighbors(centers, centers, 10)
@@ -326,7 +326,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             hole_distances, hole_inds = getNearestNeighbors(stm_image._hole_coords,
                                                             centers, 2)
 
-        hole_dists = [] # List of the distance of each center to nearest hole edge, I think
+        hole_dists = [] # List of the distance of each center to nearest hole edge in pixels
         ring_size = [] # List of size of each ring
         center_coords = [] # PUT RING CENTERS INTO -rings
         for k in range(len(distances)):
@@ -389,15 +389,16 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
         stm_image.centers_to_objects(ring_size, center_coords, "pix")
         stm_image._hole_coords = hole_nm_coords
-
-        return hole_nm_dists
+        stm_image._hole_dists = hole_nm_dists
 
     #Threshold for the maximum distance that two centers can be apart to be concidered neighbors
     #thresh = 1.35
     thresh = 1.48
     #thresh = 1.52
 
-    hole_dist = getNumNeighbors(centers, thresh, average_closest)
+    # getNumNeighbors edits lists relating to centers in stm_image
+    # finds all of the rings, their size and stats relating to the hole
+    getNumNeighbors(centers, thresh, average_closest)
 
     def plotRingCenters(image, average_closest):
         for center in stm_image._rings:
