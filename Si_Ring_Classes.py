@@ -397,12 +397,11 @@ class STM:
 
         hole_nm_coords = [] #converts hole coords to nm
         for coord in self._hole_coords:
-            hole_nm_coords.append([coord[0] * self._scale, coord[1] * self._scale])
+            hole_nm_coords.append([coord[0] / self._scale, coord[1] / self._scale])
 
-        hole_nm_dists = [] #converts hole_dists to nm
+        self._hole_dists = [] #converts hole_dists to nm
         for dist in hole_dists:
-            hole_nm_dists.append(dist * self._scale)
+            self._hole_dists.append(dist / self._scale)
 
         self.centers_to_objects(ring_size, center_coords, "pix")
         self._hole_coords = hole_nm_coords
-        self._hole_dists = hole_nm_dists
