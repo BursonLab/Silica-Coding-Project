@@ -226,6 +226,7 @@ class STM:
         self._scale = im_dim[0] / sample_dim[1]  # ratio pixels/nm
         self._num_holes = num_holes
         self._hole_coords = []
+        self._hole_nm_coords = []
         self._hole_dists = [] # List of the distance of each center to nearest hole edge in nm
         self._rings = []
         self._Sis = []
@@ -334,6 +335,8 @@ class STM:
     def getNumNeighbors(self, centers, thresh, average_closest, num_holes):
         """Edits distance to hole (nm), ring sizes, ring center coordinates, and  hole coordinates (nm)"""
         # Get distances and indices of 9 nearest neighbors to every center
+
+        # STM function and call it as STM function
         def getNearestNeighbors(base_coords, search_coords, num_neighbors):
             nearest = NearestNeighbors(n_neighbors=num_neighbors, algorithm='ball_tree').fit(base_coords)
             dist, ind = nearest.kneighbors(search_coords)
@@ -395,13 +398,12 @@ class STM:
                 ring_size.append(scaled_num_neighbors)
                 center_coords.append([(centers[k][0]+centroid[0])/2,(centers[k][1]+centroid[1])/2])
 
-        hole_nm_coords = [] #converts hole coords to nm
+        self._hole_nm_coords = [] #converts hole coords to nm
         for coord in self._hole_coords:
-            hole_nm_coords.append([coord[0] / self._scale, coord[1] / self._scale])
+            self._hole_nm_coords.append([coord[0] / self._scale, coord[1] / self._scale])
 
         self._hole_dists = [] #converts hole_dists to nm
         for dist in hole_dists:
-            self._hole_dists.append(dist / self._scale)
+            self._hole_dists.append(dist * self._scale)
 
         self.centers_to_objects(ring_size, center_coords, "pix")
-        self._hole_coords = hole_nm_coords

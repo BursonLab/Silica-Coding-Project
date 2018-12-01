@@ -867,13 +867,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
 
             # outline hole with light blue
-            pix_hole_coords = []
-            for coord in stm_image._hole_coords:
-                pix_hole_coords.append(nmToPixels(coord,
-                                                  dimensions,
-                                                  image_width, image_height))
-            stm_image.plot_circles(plot_image, pix_hole_coords, 5,
-                                   [0, 191, 255], False)
+            stm_image.plot_circles(plot_image, stm_image._hole_coords, 5, [0, 191, 255], False)
 
             fig.clf()
             ax = fig.add_subplot(111)
