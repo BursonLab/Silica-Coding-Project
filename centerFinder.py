@@ -742,7 +742,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         print("Launched Auto Ring Finder")
         fig = Figure(figsize=(10, 6), dpi=100)
         ax = fig.add_subplot(111)
-        ax.imshow(image)
+        # ax.imshow(image)
+
+        fig, ax = plt.subplots()
+        ax.imshow(image, extent=[0, stm_image._sample_dim[0], 0, stm_image._sample_dim[1]])
 
         canvas = FigureCanvasTkAgg(fig, master=root)
         canvas.draw()
@@ -805,7 +808,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
 
             plotRingCenters(image, average_closest)
 
-            ax.imshow(image)
+            # ax.imshow(image)
+            ax.imshow(image, extent=[0, stm_image._sample_dim[0], 0, stm_image._sample_dim[1]])
             canvas.draw()
 
             for i in range(len(cid)):
@@ -872,6 +876,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             fig.clf()
             ax = fig.add_subplot(111)
             ax.imshow(plot_image)
+            # ax.imshow(image, extent=[0, stm_image._sample_dim[0], 0, stm_image._sample_dim[1]])
             canvas.draw()
 
             """PLOTTING AND EXPORTING METHODS"""
