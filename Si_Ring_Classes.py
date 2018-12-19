@@ -29,6 +29,7 @@ class Si():
             self._pixel_location = [x, y, z]
             self._nm_location = [0, 0, 0]
         self._rings = []
+        self._hole_dist = 0  # dist 2 nearest hole, asnd later than constructed
         self._d1 = 0
         self._d2 = 0
         self._d3 = 0
@@ -92,6 +93,12 @@ class Si():
         y = self.get_nm_location()[1]
         d = edge_buffer
         return x < d or x > max_x - d or y < d or y > max_y - d
+
+    def assign_hole_dist(self, hole_dist):
+        self._hole_dist = hole_dist
+
+    def get_hole_dist(self):
+        return self._hole_dist
 
     """ Private Methods """
 

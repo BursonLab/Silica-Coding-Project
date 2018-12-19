@@ -40,8 +40,8 @@ else:
     from tkinter import messagebox
 
 
-
-light_centers = False
+bubbles = False # True for bubble raft
+ 
 
 # 170908_SiO2@RuVII_STM110_det (27.4x11.5).jpg
 
@@ -102,8 +102,8 @@ def getFilename():
             # Call the rest of the program using given parameters
             centerFinder(filename, dimensions, num_holes, import_xyz,
                          xyz_filename)
-        except ValueError:
-            messagebox.showerror("Error", "Invalid dimensions and/or number of holes")
+        # except ValueError:
+        #     messagebox.showerror("Error", "Invalid dimensions and/or number of holes")
         except FileNotFoundError:
             messagebox.showerror("Error", "A file could not be found with that filename")
 
@@ -185,9 +185,13 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
     # Adjust the brightness of the greyscale to make image more uniform
     grey = exposure.equalize_adapthist(exposure.adjust_gamma(grey))
 
+    
+
     # Invert image if centers are dark, else keep same
-    if light_centers:
+    if bubbles:
+        # grey = grey > 0.5 # Filter and contrast centers if bubbles
         grey_inv = grey
+
     else:
         grey_inv = util.invert(grey)
 
@@ -281,6 +285,8 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         grey_inv = grey_inv * (1 - holes)
         grey_inv_copy = grey_inv
 
+        
+
         peak_coord = feature.peak_local_max(grey_inv, min_distance=24,threshold_rel=0.2)
 
         #Returns a list of the centers of the blobs
@@ -301,10 +307,11 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
         # threshold -> decrease to detect less intense rings
         # overlap -> fraction of the blobs that are allowed to overlap with each other
 
-        #blobs = feature.blob_dog(grey_inv, min_sigma=0.03, max_sigma=30, sigma_ratio=2.8, threshold=0.8, overlap=0.5)
+        # blobs = feature.blob_dog(grey_inv, min_sigma=0.03, max_sigma=30, sigma_ratio=2.8, threshold=0.8, overlap=0.5)
         blobs = feature.blob_dog(grey_inv, min_sigma=0.07, max_sigma=15, sigma_ratio=2.8, threshold=0.5, overlap=0.3)
         centers = getBlobCenters(blobs)
-
+        print(centers)
+        
         #Find the average distance to closest neighbor
         c_dist, c_ind = getNearestNeighbors(centers, centers, 2)
         avg_closest = numpy.median(c_dist[:][1])
@@ -316,6 +323,7 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
             average_thresh = 1.6 #2.1#1.6 #1.92
 
             plotCirclesOnImage(grey_inv, centers, avg_closest*average_thresh, 0)
+            
 
             #Find blobs that may be rings that have not been found on first pass
             blobs = numpy.concatenate((blobs, feature.blob_dog(grey_inv,
@@ -1093,9 +1101,10 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                     bin_start += bin_size
 
                 for i in range(len(si_objects)):
-                    si = si_objects[i] # This is the Si that we are looking at
-                    si_dist = distances[i] # Here is its distance from the hole or axis
-                    si_rings = si.get_rings() # Here is a list of 3 ring objects for each Si
+                    si = si_objects[i]  # This is the Si that we are looking at
+                    si_dist = distances[i]  # Here is its distance from the hole or axis
+                    si.assign_hole_dist(si_dist)  # assign that to the object
+                    si_rings = si.get_rings()  # Here is a list of 3 ring objects for each Si
 
                     # cycle through bins to find which one to put these 3 ring types in
                     bin_start = 0
@@ -1125,10 +1134,26 @@ def centerFinder(filename, dimensions, num_holes, import_xyz, xyz_filename):
                 out.write("\n")
 
             def outputSi():
-                """ write Si positions to an out file. """
+                """ write Si positions to an out file.
+                File has a Si on each line ex:
+                [x, y, z] Triplet: ___ dist: ____"""
+
                 out = open(filename[:-4] + 'Siloc.txt', "w")
-                out.write(str(si_locations))
-                out.write("\n")
+
+                for si in si_objects:
+                    loc = si.get_nm_location()
+                    rings = si.get_rings()
+                    ring_types = ''
+                    for ring in rings:
+                        typ = str(ring.get_type())
+                        ring_types += typ
+                    dist = distFromPointToGroup(loc, hole_coords)
+                    out.write(str(loc))
+                    out.write(" Triplet: ")
+                    out.write(ring_types)
+                    out.write(" dist: ")
+                    out.write(str(dist))
+                    out.write("\n")
 
             def tripletBar():
                 y_pos = numpy.arange(len(triplet_types))
