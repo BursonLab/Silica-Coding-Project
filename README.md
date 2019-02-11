@@ -2,7 +2,7 @@
 
 #How to Run centerFinder.py on Windows
 
-####Most of this applies to Mac users as well.
+##Most of this applies to Mac users as well.
 
 1. Go through the GitHub tutorial. You should now have a folder on your computer named GitHub containing all of the Silica-Coding-Project files.
 2. Download Anaconda Distribution.
